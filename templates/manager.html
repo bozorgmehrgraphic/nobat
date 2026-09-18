@@ -2,7 +2,7 @@
 {% block content %}
 
 <div style="background:#dcfce7;color:#15803d;padding:8px 14px;border-radius:8px;font-size:12px;margin-bottom:12px;text-align:center;font-weight:700">
-  نسخه ۴ — مدیر بارگیری
+  نسخه ۵ — اگر این جعبه سبز را می‌بینید، فایل به‌روز شده
 </div>
 
 <div class="stats-row">
@@ -15,7 +15,7 @@
 
   <form method="post" action="{{ url_for('manager_add') }}" id="addForm">
     <div class="plate-section">
-      <label>شماره پلاک</label>
+      <label>شماره پلاک (اول پر شود)</label>
       <div class="plate-group">
         <input class="p2" id="fPlateTwo" name="plate_two" maxlength="2" inputmode="numeric" placeholder="۱۲" required>
         <span class="plate-letter-fixed">ع</span>
@@ -40,7 +40,7 @@
       <div class="dest-wrap">
         <div class="chips" id="destChips">
           {% for d in destinations %}
-            <span class="chip" data-dest="{{ d.name }}">{{ d.name }}</span>
+            <span class="chip" data-dest="{{ d.name }}" onclick="pickDest(this)">{{ d.name }}</span>
           {% endfor %}
         </div>
       </div>
@@ -49,45 +49,34 @@
 
     <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn-primary" type="submit">ثبت نوبت</button>
-      <span class="btn-ghost" id="btnManageDests" style="cursor:pointer">⚙ مدیریت مسیرها</span>
+      <button class="btn-ghost" type="button" onclick="document.getElementById('destModal').classList.add('on')">⚙ مدیریت مسیرها</button>
     </div>
   </form>
 </div>
 
 <div class="card">
   <div class="tabs">
-    <button id="tabQueue" class="on" type="button">صف انتظار</button>
-    <button id="tabLoaded" type="button">بار شده‌ها</button>
+    <button id="tabQueue" class="on" type="button" onclick="showTab('queue')">صف انتظار</button>
+    <button id="tabLoaded" type="button" onclick="showTab('loaded')">بار شده‌ها</button>
   </div>
-  <input type="text" class="queue-search" id="queueSearch" placeholder="🔍 جستجو...">
+  <input type="text" class="queue-search" id="queueSearch" placeholder="🔍 جستجو (نام، پلاک، کد نوبت)" onkeyup="searchList(this.value)">
 
   <div class="expiry-note">نوبت‌های بیش از ۷ روز از صف حذف می‌شوند. بارهای بیش از ۷ روز از لیست بار شده‌ها نیز حذف می‌گردند.</div>
-
-  <div class="filter-row">
-    <div class="filter-label">فیلتر مقصد:</div>
-    <div class="chips" id="filterDests"></div>
-  </div>
-  <div class="filter-row">
-    <div class="filter-label">فیلتر تناژ:</div>
-    <div class="chips" id="filterTons"></div>
-  </div>
 
   <div id="listQueue">
     {% if not waiters %}<div class="empty">هیچ راننده‌ای در صف نیست.</div>{% endif %}
     {% for d in waiters %}
       <div class="item {{ 'expiring' if is_expiring_soon(d) else '' }}"
-           data-id="{{ d.id }}" data-name="{{ d.name }}" data-phone="{{ d.phone }}"
-           data-plate="{{ d.plate_two }} {{ d.plate_three }} {{ d.plate_city }}"
-           data-code="{{ d.queue_code }}" data-tonnage="{{ d.tonnage }}"
-           data-dests="{{ d.get_destinations()|join(',') }}">
+           data-name="{{ d.name }}" data-plate="{{ d.plate_two }} {{ d.plate_three }} {{ d.plate_city }}"
+           data-code="{{ d.queue_code }}">
         <div class="num">{{ loop.index|fa }}</div>
         <div class="body">
-          <div class="name">{{ d.name }}
+          <div class="name">
+            {{ d.name }}
             <span class="qcode {{ waiting_class(d) }}">کد: {{ d.queue_code|fa }}</span>
           </div>
           <div class="meta">
-            <span>📞 {{ d.phone|fa }}</span>
-            <span>🩺 {{ d.vet_code|fa }}</span>
+            <span>📞 {{ d.phone|fa }}</span><span>🩺 {{ d.vet_code|fa }}</span>
             <span>⚖️ تناژ {{ d.tonnage|fa }} تن</span>
             <span class="{{ waiting_class(d) }}">⏱ {{ wait_text(d) }} در انتظار</span>
             <span class="{{ 'expire-warn' if is_expiring_soon(d) else 'expire-normal' }}">⏳ {{ expiry_text(d) }}</span>
@@ -96,7 +85,7 @@
           <div class="tags">{% for x in d.get_destinations() %}<span class="tag">{{ x }}</span>{% endfor %}</div>
         </div>
         <div class="actions">
-          <span class="btn-green" data-act="assign" data-id="{{ d.id }}" style="cursor:pointer">اختصاص بار</span>
+          <a class="btn-green" href="{{ url_for('manager_assign', did=d.id) }}">اختصاص بار</a>
           <form method="post" action="{{ url_for('manager_extend', did=d.id) }}" style="display:inline" onsubmit="return confirm('تایمر تمدید شود؟')">
             <button class="btn-extend" type="submit">🔄 تمدید</button>
           </form>
@@ -111,9 +100,9 @@
   <div id="listLoaded" style="display:none">
     {% if not loadeds %}<div class="empty">هنوز باری اختصاص داده نشده.</div>{% endif %}
     {% for d in loadeds %}
-      <div class="item" data-id="{{ d.id }}" data-name="{{ d.name }}"
+      <div class="item" data-name="{{ d.name }}"
            data-plate="{{ d.plate_two }} {{ d.plate_three }} {{ d.plate_city }}"
-           data-code="{{ d.queue_code }}" data-tonnage="{{ d.tonnage }}">
+           data-code="{{ d.queue_code }}">
         <div class="num ok">✓</div>
         <div class="body">
           <div class="name">{{ d.name }}<span class="qcode default">کد: {{ d.queue_code|fa }}</span></div>
@@ -140,24 +129,7 @@
   </div>
 </div>
 
-<div class="modal" id="assignModal">
-  <div class="modal-box">
-    <h3>اختصاص بار</h3>
-    <p id="assignInfo"></p>
-    <form method="post" id="assignForm">
-      <div class="f-row"><label>مقصد بار</label><select id="aDest" name="cargo_dest" required></select></div>
-      <div class="f-row"><label>نام بار</label><input type="text" id="aName" name="cargo_name"></div>
-      <div class="f-row">
-        <label>وزن بار (تن) — اختیاری</label>
-        <input type="tel" id="aTon" name="cargo_ton" inputmode="decimal">
-      </div>
-      <div class="modal-actions">
-        <button class="btn-primary" type="submit">تأیید و انتقال</button>
-        <span class="btn-ghost" id="btnCancelAssign" style="cursor:pointer">انصراف</span>
-      </div>
-    </form>
-  </div>
-</div><div class="modal" id="destModal">
+<div class="modal" id="destModal">
   <div class="modal-box">
     <h3>مدیریت مسیرها</h3>
     <form method="post" action="{{ url_for('manager_dest_add') }}" style="display:flex;gap:8px;margin-bottom:12px">
@@ -174,242 +146,61 @@
         </div>
       {% endfor %}
     </div>
-    <div class="modal-actions"><span class="btn-ghost" id="btnCloseDestModal" style="cursor:pointer">بستن</span></div>
+    <div class="modal-actions"><button class="btn-ghost" type="button" onclick="document.getElementById('destModal').classList.remove('on')">بستن</button></div>
   </div>
 </div>
 
 <script>
-console.log('manager v4 loaded');
-
-document.addEventListener('click', function(e){
-  var target = e.target;
-
-  // انتخاب مقصد
-  if(target.classList.contains('chip') && target.closest('#destChips')){
-    var wrap = document.getElementById('destChips');
-    var onCount = wrap.querySelectorAll('.chip.on').length;
-    if(!target.classList.contains('on') && onCount >= 3){
-      alert('حداکثر ۳ مقصد می‌توانید انتخاب کنید.');
-      return;
-    }
-    target.classList.toggle('on');
-    updateHiddenDests();
-    updateDestCounter();
+function pickDest(el){
+  var c = document.querySelectorAll('#destChips .chip.on').length;
+  if(!el.classList.contains('on') && c >= 3){
+    alert('حداکثر ۳ مقصد');
     return;
   }
-
-  // فیلتر مقصد
-  if(target.classList.contains('chip') && target.closest('#filterDests')){
-    document.querySelectorAll('#filterDests .chip').forEach(function(c){ c.classList.remove('on'); });
-    target.classList.add('on');
-    applyAll();
-    return;
-  }
-
-  // فیلتر تناژ
-  if(target.classList.contains('chip') && target.closest('#filterTons')){
-    document.querySelectorAll('#filterTons .chip').forEach(function(c){ c.classList.remove('on'); });
-    target.classList.add('on');
-    applyAll();
-    return;
-  }
-
-  // اختصاص بار
-  if(target.getAttribute('data-act') === 'assign'){
-    openAssign(target.getAttribute('data-id'));
-    return;
-  }
-
-  // تب‌ها
-  if(target.id === 'tabQueue'){ switchTab('queue'); return; }
-  if(target.id === 'tabLoaded'){ switchTab('loaded'); return; }
-
-  // مدیریت مسیرها
-  if(target.id === 'btnManageDests'){ document.getElementById('destModal').classList.add('on'); return; }
-  if(target.id === 'btnCloseDestModal'){ document.getElementById('destModal').classList.remove('on'); return; }
-
-  // انصراف اختصاص
-  if(target.id === 'btnCancelAssign'){ document.getElementById('assignModal').classList.remove('on'); return; }
-});
-
-function updateHiddenDests(){
-  var c = document.getElementById('hiddenDests');
-  c.innerHTML = '';
-  var selected = document.querySelectorAll('#destChips .chip.on');
-  selected.forEach(function(ch){
+  el.classList.toggle('on');
+  refreshHidden();
+}function refreshHidden(){
+  var container = document.getElementById('hiddenDests');
+  container.innerHTML = '';
+  var sels = document.querySelectorAll('#destChips .chip.on');
+  for(var i = 0; i < sels.length; i++){
     var inp = document.createElement('input');
     inp.type = 'hidden';
     inp.name = 'destinations';
-    inp.value = ch.getAttribute('data-dest');
-    c.appendChild(inp);
-  });
-}
-
-function updateDestCounter(){
-  var n = document.querySelectorAll('#destChips .chip.on').length;
-  var c = document.getElementById('destCounter');
-  if(!c) return;
-  c.textContent = '(' + n + ' از ۳ انتخاب شده)';
-  c.style.color = n===3 ? '#16a34a' : '#64748b';
-}
-
-function switchTab(name){
-  document.getElementById('tabQueue').classList.toggle('on', name==='queue');
-  document.getElementById('tabLoaded').classList.toggle('on', name==='loaded');
-  document.getElementById('listQueue').style.display = name==='queue' ? '' : 'none';
-  document.getElementById('listLoaded').style.display = name==='loaded' ? '' : 'none';
-}
-
-function openAssign(id){
-  var el = document.querySelector('#listQueue .item[data-id="' + id + '"]');if(!el){ alert('راننده پیدا نشد'); return; }
-  var dests = (el.getAttribute('data-dests')||'').split(',').filter(function(x){ return x; });
-  var name = el.getAttribute('data-name');
-  var code = el.getAttribute('data-code');
-  var plate = el.getAttribute('data-plate');
-  document.getElementById('assignInfo').innerHTML = 'راننده: <b>' + name + '</b> — کد: <b>' + code + '</b> — پلاک: <b>' + plate + '</b>';
-  var sel = document.getElementById('aDest');
-  sel.innerHTML = '';
-  dests.forEach(function(d){
-    var o = document.createElement('option');
-    o.value = d;
-    o.textContent = d;
-    sel.appendChild(o);
-  });
-  document.getElementById('aName').value = '';
-  document.getElementById('aTon').value = '';
-  document.getElementById('assignForm').action = '/manager/assign/' + id;
-  document.getElementById('assignModal').classList.add('on');
-}
-
-function applyAll(){
-  var activeD = document.querySelector('#filterDests .chip.on');
-  var activeT = document.querySelector('#filterTons .chip.on');
-  var vD = activeD ? activeD.getAttribute('data-val') : 'all';
-  var vT = activeT ? activeT.getAttribute('data-val') : 'all';
-  document.querySelectorAll('#listQueue .item').forEach(function(el){
-    var ds = (el.getAttribute('data-dests')||'').split(',');
-    var okD = vD==='all' || ds.indexOf(vD) !== -1;
-    var okT = vT==='all' || el.getAttribute('data-tonnage')===vT;
-    el.style.display = (okD && okT) ? '' : 'none';
-  });
-}
-
-function buildFilters(){
-  var destsSet = {}, tonsSet = {};
-  document.querySelectorAll('#listQueue .item').forEach(function(el){
-    (el.getAttribute('data-dests')||'').split(',').forEach(function(d){ if(d) destsSet[d]=1; });
-    var t = el.getAttribute('data-tonnage');
-    if(t) tonsSet[t]=1;
-  });
-  var fd = document.getElementById('filterDests');
-  fd.innerHTML = '';
-  var allChip = document.createElement('span');
-  allChip.className = 'chip on';
-  allChip.textContent = 'همه';
-  allChip.setAttribute('data-val', 'all');
-  fd.appendChild(allChip);
-  Object.keys(destsSet).forEach(function(d){
-    var c = document.createElement('span');
-    c.className = 'chip';
-    c.textContent = d;
-    c.setAttribute('data-val', d);
-    fd.appendChild(c);
-  });
-  var ft = document.getElementById('filterTons');
-  ft.innerHTML = '';
-  var allT = document.createElement('span');
-  allT.className = 'chip tchip on';
-  allT.textContent = 'همه';
-  allT.setAttribute('data-val', 'all');
-  ft.appendChild(allT);
-  var tons = Object.keys(tonsSet).sort(function(a,b){ return Number(a)-Number(b); });
-  tons.forEach(function(t){
-    var c = document.createElement('span');
-    c.className = 'chip tchip';
-    c.textContent = t + ' تن';
-    c.setAttribute('data-val', t);
-    ft.appendChild(c);
-  });
-}
-
-function checkPlate(){
-  var two = document.getElementById('fPlateTwo').value;
-  var three = document.getElementById('fPlateThree').value;
-  var city = document.getElementById('fPlateCity').value;
-  if(two.length !== 2  three.length !== 3  city.length !== 2) return;
-
-  var dupEntry = null;
-  document.querySelectorAll('#listQueue .item').forEach(function(el){
-    var p = (el.getAttribute('data-plate')||'').split(' ');
-    if(p[0] === two && p[1] === three && p[2] === city) dupEntry = el;
-  });
-  var dup = document.getElementById('dupBadge');
-  var badge = document.getElementById('autoFillBadge');
-  dup.classList.remove('on');
-  badge.classList.remove('on');
-
-  if(dupEntry){
-    dup.innerHTML = '⛔ این پلاک در صف است — ' + dupEntry.getAttribute('data-name') + ' (کد ' + dupEntry.getAttribute('data-code') + ')';
-    dup.classList.add('on');
-    return;
+    inp.value = sels[i].getAttribute('data-dest');
+    container.appendChild(inp);
   }
-
-  fetch('/api/plate?two=' + encodeURIComponent(two) + '&three=' + encodeURIComponent(three) + '&city=' + encodeURIComponent(city))
-    .then(function(r){ return r.json(); })
-    .then(function(data){if(!data.found) return;
-      document.getElementById('fName').value = data.name || '';
-      document.getElementById('fPhone').value = data.phone || '';
-      document.getElementById('fVet').value = data.vet_code || '';
-      document.getElementById('fTon').value = data.tonnage || '';
-      var dests = data.destinations || [];
-      document.querySelectorAll('#destChips .chip').forEach(function(ch){
-        if(dests.indexOf(ch.getAttribute('data-dest')) !== -1) ch.classList.add('on');
-        else ch.classList.remove('on');
-      });
-      updateHiddenDests();
-      updateDestCounter();
-      badge.classList.add('on');
-    })
-    .catch(function(err){ console.error(err); });
+  var counter = document.getElementById('destCounter');
+  if(counter){
+    counter.textContent = '(' + sels.length + ' از ۳)';
+    counter.style.color = sels.length === 3 ? '#16a34a' : '#64748b';
+  }
 }
 
-document.addEventListener('input', function(e){
-  var t = e.target;
+function showTab(name){
+  document.getElementById('tabQueue').classList.toggle('on', name === 'queue');
+  document.getElementById('tabLoaded').classList.toggle('on', name === 'loaded');
+  document.getElementById('listQueue').style.display = name === 'queue' ? '' : 'none';
+  document.getElementById('listLoaded').style.display = name === 'loaded' ? '' : 'none';
+}
 
-  // جستجوی شهر
-  if(t.id === 'destSearch'){
-    var q = (t.value||'').trim();
-    document.querySelectorAll('#destChips .chip').forEach(function(ch){
-      var name = ch.getAttribute('data-dest') || '';
-      ch.style.display = (!q || name.indexOf(q) !== -1) ? '' : 'none';
-    });
-    return;
+function searchList(q){
+  q = (q || '').trim().toLowerCase();
+  var items = document.querySelectorAll('#listQueue .item, #listLoaded .item');
+  for(var i = 0; i < items.length; i++){
+    var el = items[i];
+    var hay = (el.getAttribute('data-name') + ' ' + el.getAttribute('data-plate') + ' ' + el.getAttribute('data-code')).toLowerCase();
+    el.style.display = (!q || hay.indexOf(q) !== -1) ? '' : 'none';
   }
+}
 
-  // جستجوی صف
-  if(t.id === 'queueSearch'){
-    var q2 = (t.value||'').trim().toLowerCase();
-    document.querySelectorAll('#listQueue .item, #listLoaded .item').forEach(function(el){
-      var hay = (el.getAttribute('data-name')+' '+el.getAttribute('data-plate')+' '+el.getAttribute('data-code')).toLowerCase();
-      el.style.display = (!q2 || hay.indexOf(q2) !== -1) ? '' : 'none';
-    });
-    return;
+document.getElementById('destSearch').addEventListener('keyup', function(){
+  var q = this.value.trim();
+  var chips = document.querySelectorAll('#destChips .chip');
+  for(var i = 0; i < chips.length; i++){
+    var name = chips[i].getAttribute('data-dest') || '';
+    chips[i].style.display = (!q || name.indexOf(q) !== -1) ? '' : 'none';
   }
-
-  // فیلدهای پلاک
-  if(t.id === 'fPlateTwo' || t.id === 'fPlateThree' || t.id === 'fPlateCity'){
-    t.value = t.value.replace(/[^0-9۰-۹]/g, '');
-    document.getElementById('autoFillBadge').classList.remove('on');
-    document.getElementById('dupBadge').classList.remove('on');
-    checkPlate();
-    return;
-  }
-});
-
-window.addEventListener('load', function(){
-  console.log('building filters');
-  buildFilters();
-  updateDestCounter();
 });
 </script>
 
