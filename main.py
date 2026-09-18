@@ -740,10 +740,39 @@ def init_db():
     with app.app_context():
         try:
             db.create_all()
+            print('=== Tables created/checked ===')
+
+            from sqlalchemy import text
+            alters = [
+                ("driver", "barfoory", "VARCHAR(120)"),
+                ("driver", "is_deleted", "BOOLEAN DEFAULT FALSE"),
+                ("driver", "deleted_at", "TIMESTAMP"),
+                ("driver", "deleted_by", "VARCHAR(120)"),
+                ("known_plate", "barfoory", "VARCHAR(120)"),
+                ("driver_profile", "barfoory", "VARCHAR(120)"),
+            ]
+
+            with db.engine.begin() as conn:
+                for table, col, typ in alters:
+                    sql = f'ALTER TABLE "{table}" ADD COLUMN IF NOT EXISTS "{col}" {typ}'
+                    try:
+                        conn.execute(text(sql))
+                        print(f'OK: {table}.{col}')
+                    except Exception as e:
+                        print(f'SKIP {table}.{col}: {e}')
+
+            with db.engine.begin() as conn:
+                try:
+                    conn.execute(text('UPDATE driver SET is_deleted = FALSE WHERE is_deleted IS NULL'))
+                    print('OK: is_deleted normalized')
+                except Exception as e:
+                    print(f'Skip update is_deleted: {e}')
+
             if Destination.query.count() == 0:
                 for n in DEFAULT_DESTS:
                     db.session.add(Destination(name=n))
                 db.session.commit()
+
             admin_user = os.environ.get('ADMIN_USER', 'admin')
             admin_pass = os.environ.get('ADMIN_PASS', 'admin123')
             if not User.query.filter_by(username=admin_user).first():
@@ -752,14 +781,18 @@ def init_db():
                 db.session.add(u)
                 db.session.commit()
                 print(f'Admin user created: {admin_user} / {admin_pass}')
+
             for u in User.query.filter_by(is_admin=False).all():
                 if not DriverCredential.query.filter_by(user_id=u.id).first():
                     cred = DriverCredential(user_id=u.id, username=u.username,
                                             plain_password='(قبل از این نسخه ثبت شده)')
                     db.session.add(cred)
             db.session.commit()
+            print('=== DB init completed successfully ===')
         except Exception as e:
             print(f'DB init error: {e}')
+            import traceback
+            traceback.print_exc()
 
 
 init_db()
