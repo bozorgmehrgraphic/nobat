@@ -107,3 +107,5 @@ button{font-family:inherit;cursor:pointer;border:none;border-radius:9px;font-siz
   height:0;
 }
 .chip{position:relative}
+.chip{cursor:pointer;user-select:none}
+.chip.on{background:var(--blue);color:#fff;border-color:var(--blue)}
