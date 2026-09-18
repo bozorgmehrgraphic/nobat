@@ -1,6 +1,42 @@
 {% extends 'base.html' %}
 {% block content %}
 
+<script>
+window.toggleDest = function(el){
+  if(!el.classList.contains('on') && document.querySelectorAll('#destChips .chip.on').length >= 3){
+    alert('حداکثر ۳ مقصد می‌توانید انتخاب کنید.');
+    return;
+  }
+  el.classList.toggle('on');
+  updateHiddenDests();
+  updateDestCounter();
+};
+window.updateHiddenDests = function(){
+  const c = document.getElementById('hiddenDests');
+  c.innerHTML = '';
+  document.querySelectorAll('#destChips .chip.on').forEach(ch => {
+    const inp = document.createElement('input');
+    inp.type = 'hidden';
+    inp.name = 'destinations';
+    inp.value = ch.dataset.dest;
+    c.appendChild(inp);
+  });
+};
+window.updateDestCounter = function(){
+  const n = document.querySelectorAll('#destChips .chip.on').length;
+  const c = document.getElementById('destCounter');
+  if(!c) return;
+  c.textContent = '(' + n + ' از ۳ انتخاب شده)';
+  c.style.color = n===3 ? '#16a34a' : '#64748b';
+};
+window.filterDests = function(q){
+  q = (q||'').trim();
+  document.querySelectorAll('#destChips .chip').forEach(ch => {
+    ch.style.display = (!q || ch.dataset.dest.indexOf(q) !== -1) ? '' : 'none';
+  });
+};
+</script>
+
 <div class="card">
   <h2>خوش آمدید {{ current_user.name }}</h2>
   <p class="muted">شماره تماس: {{ current_user.phone|fa }}</p>
@@ -62,49 +98,23 @@
     <div class="grid">
       <div><label>نام و نام خانوادگی</label><input type="text" name="name" value="{{ current_user.name }}" required></div>
       <div><label>شماره تماس</label><input type="tel" name="phone" value="{{ current_user.phone }}" inputmode="numeric" required></div>
-      <div><label>کد دامپزشکی</label><input type="tel" name="vet_code" inputmode="numeric" required></div>
-      <div><label>بیشترین تناژ (تن)</label><input type="tel" name="tonnage" inputmode="decimal" required></div>
+      <div><label>کد دامپزشکی</label><input type="tel" name="vet_code" inputmode="numeric" required></div><div><label>بیشترین تناژ (تن)</label><input type="tel" name="tonnage" inputmode="decimal" required></div>
     </div>
     <div style="margin-top:14px">
       <label>مقصد (حداکثر ۳ مورد) <span id="destCounter" style="font-weight:400;font-size:12px;color:#64748b">(۰ از ۳)</span></label>
-      <input type="text" class="dest-search" id="destSearch" placeholder="🔍 جستجوی شهر...">
+      <input type="text" class="dest-search" id="destSearch" placeholder="🔍 جستجوی شهر..." onkeyup="filterDests(this.value)">
       <div class="dest-wrap">
         <div class="chips" id="destChips">
           {% for d in all_dests %}
-            <label class="chip"><input type="checkbox" name="destinations" value="{{ d.name }}"><span>{{ d.name }}</span></label>
+            <div class="chip" data-dest="{{ d.name }}" onclick="toggleDest(this)">{{ d.name }}</div>
           {% endfor %}
         </div>
       </div>
+      <div id="hiddenDests"></div>
     </div>
     <button class="btn-primary" type="submit" style="margin-top:14px">ثبت در صف</button>
   </form>
 </div>
-<script>
-(function(){
-  const wrap = document.getElementById('destChips');
-  if(!wrap) return;
-  const counter = document.getElementById('destCounter');
-  const search = document.getElementById('destSearch');
-  function refresh(){
-    const sel = wrap.querySelectorAll('input[type=checkbox]:checked');counter.textContent = (${sel.length} از ۳ انتخاب شده);
-    counter.style.color = sel.length===3 ? '#16a34a' : '#64748b';
-    wrap.querySelectorAll('.chip').forEach(c => {
-      const cb = c.querySelector('input');
-      if(cb.checked){ c.classList.add('on'); cb.disabled = false; c.classList.remove('disabled'); }
-      else { c.classList.remove('on'); cb.disabled = sel.length>=3; c.classList.toggle('disabled', sel.length>=3); }
-    });
-  }
-  wrap.querySelectorAll('input[type=checkbox]').forEach(cb => cb.addEventListener('change', refresh));
-  if(search) search.addEventListener('input', e => {
-    const q = e.target.value.trim();
-    wrap.querySelectorAll('.chip').forEach(c => {
-      const t = c.querySelector('span').textContent;
-      c.style.display = (!q || t.includes(q)) ? '' : 'none';
-    });
-  });
-  refresh();
-})();
-</script>
 {% endif %}
 
 {% endblock %}
