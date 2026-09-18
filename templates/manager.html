@@ -9,23 +9,19 @@
 <div class="card">
   <h2>ثبت نوبت راننده</h2>
 
-  <div class="plate-section">
-    <label>شماره پلاک (اول پر شود — اگه قبلاً ثبت شده، بقیه خودکار پر می‌شود)</label>
-    <div class="plate-group">
-      <input class="p2" id="fPlateTwo" maxlength="2" inputmode="numeric" placeholder="۱۲">
-      <span class="plate-letter-fixed">ع</span>
-      <input class="p3" id="fPlateThree" maxlength="3" inputmode="numeric" placeholder="۳۴۵">
-      <span class="plate-ir">ایران</span>
-      <input class="pC" id="fPlateCity" maxlength="2" inputmode="numeric" placeholder="۶۷">
-    </div>
-    <div class="auto-fill-badge" id="autoFillBadge">✓ اطلاعات این پلاک از قبل موجود بود و خودکار پر شد</div>
-    <div class="dup-badge" id="dupBadge"></div>
-  </div>
-
   <form method="post" action="{{ url_for('manager_add') }}" id="addForm">
-    <input type="hidden" name="plate_two" id="hPlateTwo">
-    <input type="hidden" name="plate_three" id="hPlateThree">
-    <input type="hidden" name="plate_city" id="hPlateCity">
+    <div class="plate-section">
+      <label>شماره پلاک (اول پر شود — اگه قبلاً ثبت شده، بقیه خودکار پر می‌شود)</label>
+      <div class="plate-group">
+        <input class="p2" id="fPlateTwo" name="plate_two" maxlength="2" inputmode="numeric" placeholder="۱۲" required>
+        <span class="plate-letter-fixed">ع</span>
+        <input class="p3" id="fPlateThree" name="plate_three" maxlength="3" inputmode="numeric" placeholder="۳۴۵" required>
+        <span class="plate-ir">ایران</span>
+        <input class="pC" id="fPlateCity" name="plate_city" maxlength="2" inputmode="numeric" placeholder="۶۷" required>
+      </div>
+      <div class="auto-fill-badge" id="autoFillBadge">✓ اطلاعات این پلاک از قبل موجود بود و خودکار پر شد</div>
+      <div class="dup-badge" id="dupBadge"></div>
+    </div>
 
     <div class="grid">
       <div><label>نام و نام خانوادگی</label><input type="text" id="fName" name="name" required></div>
@@ -40,7 +36,7 @@
       <div class="dest-wrap">
         <div class="chips" id="destChips">
           {% for d in destinations %}
-            <label class="chip"><input type="checkbox" name="destinations" value="{{ d.name }}" style="display:none"><span>{{ d.name }}</span></label>
+            <label class="chip"><input type="checkbox" name="destinations" value="{{ d.name }}"><span>{{ d.name }}</span></label>
           {% endfor %}
         </div>
       </div>
@@ -81,9 +77,9 @@
            data-dests="{{ d.get_destinations()|join(',') }}">
         <div class="num">{{ loop.index|fa }}</div>
         <div class="body">
-          <div class="name">{{ d.name }}
-            <span class="qcode {{ waiting_class(d) }}">کد: {{ d.queue_code|fa }}</span>
-          </div>
+          <div class="name">
+            {{ d.name }}
+            <span class="qcode {{ waiting_class(d) }}">کد: {{ d.queue_code|fa }}</span></div>
           <div class="meta">
             <span>📞 {{ d.phone|fa }}</span>
             <span>🩺 {{ d.vet_code|fa }}</span>
@@ -157,8 +153,9 @@
       </div>
     </form>
   </div>
-</div><div class="modal" id="destModal">
-  <div class="modal-box">
+</div>
+
+<div class="modal" id="destModal"><div class="modal-box">
     <h3>مدیریت مسیرها</h3>
     <form method="post" action="{{ url_for('manager_dest_add') }}" style="display:flex;gap:8px;margin-bottom:12px">
       <input type="text" name="name" placeholder="نام مسیر جدید" required>
@@ -210,14 +207,8 @@
   const city = document.getElementById('fPlateCity');
   const badge = document.getElementById('autoFillBadge');
   const dup = document.getElementById('dupBadge');
-  function sync(){
-    document.getElementById('hPlateTwo').value = two.value.trim();
-    document.getElementById('hPlateThree').value = three.value.trim();
-    document.getElementById('hPlateCity').value = city.value.trim();
-  }
   [two, three, city].forEach(el => el.addEventListener('input', () => {
     el.value = el.value.replace(/[^0-9۰-۹]/g,'');
-    sync();
     badge.classList.remove('on');
     dup.classList.remove('on');
     dup.textContent = '';
@@ -239,7 +230,8 @@
       }
       if(!data.found) return;
       document.getElementById('fName').value = data.name || '';
-      document.getElementById('fPhone').value = data.phone || '';document.getElementById('fVet').value = data.vet_code || '';
+      document.getElementById('fPhone').value = data.phone || '';
+      document.getElementById('fVet').value = data.vet_code || '';
       document.getElementById('fTon').value = data.tonnage || '';
       document.querySelectorAll('#destChips input[type=checkbox]').forEach(cb => {
         cb.checked = (data.destinations||[]).includes(cb.value);
@@ -248,10 +240,7 @@
       badge.classList.add('on');
     });
   }
-  sync();
-})();
-
-document.getElementById('tabQueue').onclick = () => {
+})();document.getElementById('tabQueue').onclick = () => {
   document.getElementById('tabQueue').classList.add('on');
   document.getElementById('tabLoaded').classList.remove('on');
   document.getElementById('listQueue').style.display = '';
@@ -320,7 +309,8 @@ function closeAssign(){
 }
 document.getElementById('aTon').addEventListener('input', () => {
   if(!_pid) return;
-  const el = document.querySelector(#listQueue .item[data-id="${_pid}"]);if(!el) return;
+  const el = document.querySelector(#listQueue .item[data-id="${_pid}"]);
+  if(!el) return;
   const cargo = Number(document.getElementById('aTon').value);
   const maxTon = Number(el.dataset.tonnage);
   const warn = document.getElementById('tonWarn');
