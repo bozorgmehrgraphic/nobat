@@ -11,7 +11,6 @@ from flask_login import (LoginManager, UserMixin, login_user, logout_user,
 from werkzeug.security import generate_password_hash, check_password_hash
 import jdatetime
 
-# ---------- App setup ----------
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-change-me')
 
@@ -31,7 +30,7 @@ LOADED_EXPIRE_DAYS = 7
 WAIT_GREEN_DAYS = 2
 WAIT_YELLOW_DAYS = 4
 
-# ---------- Models ----------
+
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
@@ -46,6 +45,16 @@ class User(UserMixin, db.Model):
 
     def check_password(self, pw):
         return check_password_hash(self.password_hash, pw)
+
+
+class DriverProfile(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), unique=True)
+    vet_code = db.Column(db.String(20))
+    tonnage = db.Column(db.String(20))
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship('User', backref='profile', uselist=False)
 
 
 class DriverCredential(db.Model):
@@ -112,7 +121,6 @@ class Driver(db.Model):
         return f"{self.plate_two}-{self.plate_three}-{self.plate_city}"
 
 
-# ---------- Helpers ----------
 PERSIAN_DIGITS = '۰۱۲۳۴۵۶۷۸۹'
 EN_DIGITS = '0123456789'
 _TR_FA = str.maketrans(EN_DIGITS, PERSIAN_DIGITS)
@@ -274,7 +282,6 @@ def admin_required(f):
     return wrapper
 
 
-# ---------- Routes: auth ----------
 @app.route('/')
 def index():
     if not current_user.is_authenticated:
@@ -338,7 +345,6 @@ def logout():
     return redirect(url_for('login'))
 
 
-# ---------- Routes: driver ----------
 @app.route('/driver')
 @login_required
 def driver_dashboard():
@@ -356,9 +362,49 @@ def driver_dashboard():
                 position = i
                 break
     all_dests = Destination.query.order_by(Destination.name).all()
+    profile = DriverProfile.query.filter_by(user_id=current_user.id).first()
     return render_template('driver_dashboard.html',
                            entry=entry, position=position,
-                           all_dests=all_dests)
+                           all_dests=all_dests, profile=profile)
+
+
+@app.route('/driver/profile', methods=['POST'])
+@login_required
+def driver_profile():
+    if current_user.is_admin:
+        abort(403)
+    name = request.form.get('name', '').strip()
+    phone = fa_to_en(request.form.get('phone', '').strip())
+    vet = fa_to_en(request.form.get('vet_code', '').strip())
+    tonnage = fa_to_en(request.form.get('tonnage', '').strip())
+
+    if not (name and phone):
+        flash('نام و شماره تماس الزامی است.', 'error')
+        return redirect(url_for('driver_dashboard'))
+    if vet and not vet.isdigit():
+        flash('کد دامپزشکی باید فقط عدد باشد.', 'error')
+        return redirect(url_for('driver_dashboard'))
+    if tonnage:
+        try:
+            if float(tonnage) <= 0:
+                raise ValueError
+        except Exception:
+            flash('تناژ باید عدد مثبت باشد.', 'error')
+            return redirect(url_for('driver_dashboard'))
+
+    current_user.name = name
+    current_user.phone = phone
+
+    profile = DriverProfile.query.filter_by(user_id=current_user.id).first()
+    if not profile:
+        profile = DriverProfile(user_id=current_user.id)
+        db.session.add(profile)
+    profile.vet_code = vet
+    profile.tonnage = tonnage
+    profile.updated_at = datetime.utcnow()
+    db.session.commit()
+    flash('اطلاعات پروفایل شما ذخیره شد.', 'ok')
+    return redirect(url_for('driver_dashboard'))
 
 
 @app.route('/driver/extend', methods=['POST'])
@@ -456,7 +502,6 @@ def driver_queue():
     return redirect(url_for('driver_dashboard'))
 
 
-# ---------- Routes: manager ----------
 @app.route('/manager')
 @login_required
 @admin_required
@@ -465,16 +510,23 @@ def manager():
     waiters = Driver.query.filter_by(status='waiting').order_by(Driver.created_at).all()
     loadeds = Driver.query.filter_by(status='loaded').order_by(Driver.loaded_at.desc()).all()
     destinations = Destination.query.order_by(Destination.name).all()
-    credentials = (DriverCredential.query
-                   .join(User, DriverCredential.user_id == User.id)
-                   .order_by(DriverCredential.created_at.desc()).all())
     db_is_postgres = app.config['SQLALCHEMY_DATABASE_URI'].startswith('postgres')
-    user_count = User.query.filter_by(is_admin=False).count()
     return render_template('manager.html',
                            waiters=waiters, loadeds=loadeds,
                            destinations=destinations,
+                           db_is_postgres=db_is_postgres)
+
+
+@app.route('/manager/drivers')
+@login_required
+@admin_required
+def manager_drivers():
+    credentials = (DriverCredential.query
+                   .join(User, DriverCredential.user_id == User.id)
+                   .order_by(DriverCredential.created_at.desc()).all())
+    user_count = User.query.filter_by(is_admin=False).count()
+    return render_template('drivers_list.html',
                            credentials=credentials,
-                           db_is_postgres=db_is_postgres,
                            user_count=user_count)
 
 
@@ -561,17 +613,6 @@ def manager_remove(did):
     return redirect(url_for('manager'))
 
 
-@app.route('/manager/extend/<int:did>', methods=['POST'])
-@login_required
-@admin_required
-def manager_extend(did):
-    d = db.session.get(Driver, did)
-    if d:
-        d.timer_start_at = datetime.utcnow()
-        db.session.commit()
-    return redirect(url_for('manager'))
-
-
 @app.route('/manager/back/<int:did>', methods=['POST'])
 @login_required
 @admin_required
@@ -634,7 +675,6 @@ def api_plate():
     })
 
 
-# ---------- Init DB ----------
 DEFAULT_DESTS = [
     'تهران','شهریار','اسلامشهر','ورامین','کرج','فردیس','نظرآباد',
     'اصفهان','کاشان','نجف‌آباد','خمینی‌شهر','شیراز','مرودشت','جهرم','کازرون',
