@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card auth-card">
+  <h2>ثبت‌نام راننده</h2>
+  <form method="post">
+    <label>نام و نام خانوادگی</label>
+    <input type="text" name="name" required>
+    <label>شماره تماس</label>
+    <input type="tel" name="phone" inputmode="numeric" required>
+    <label>نام کاربری</label>
+    <input type="text" name="username" required>
+    <label>رمز عبور</label>
+    <input type="password" name="password" required>
+    <label>تکرار رمز عبور</label>
+    <input type="password" name="password2" required>
+    <button class="btn-primary" type="submit">ثبت‌نام</button>
+  </form>
+  <p class="muted">حساب دارید؟ <a href="{{ url_for('login') }}">وارد شوید</a></p>
+</div>
+{% endblock %}
