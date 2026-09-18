@@ -1,0 +1,338 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="stats-row">
+  <div class="stat">در انتظار: <b>{{ waiters|length|fa }}</b></div>
+  <div class="stat">بار شده: <b>{{ loadeds|length|fa }}</b></div>
+</div>
+
+<div class="card">
+  <h2>ثبت نوبت راننده</h2>
+
+  <div class="plate-section">
+    <label>شماره پلاک (اول پر شود — اگه قبلاً ثبت شده، بقیه خودکار پر می‌شود)</label>
+    <div class="plate-group">
+      <input class="p2" id="fPlateTwo" maxlength="2" inputmode="numeric" placeholder="۱۲">
+      <span class="plate-letter-fixed">ع</span>
+      <input class="p3" id="fPlateThree" maxlength="3" inputmode="numeric" placeholder="۳۴۵">
+      <span class="plate-ir">ایران</span>
+      <input class="pC" id="fPlateCity" maxlength="2" inputmode="numeric" placeholder="۶۷">
+    </div>
+    <div class="auto-fill-badge" id="autoFillBadge">✓ اطلاعات این پلاک از قبل موجود بود و خودکار پر شد</div>
+    <div class="dup-badge" id="dupBadge"></div>
+  </div>
+
+  <form method="post" action="{{ url_for('manager_add') }}" id="addForm">
+    <input type="hidden" name="plate_two" id="hPlateTwo">
+    <input type="hidden" name="plate_three" id="hPlateThree">
+    <input type="hidden" name="plate_city" id="hPlateCity">
+
+    <div class="grid">
+      <div><label>نام و نام خانوادگی</label><input type="text" id="fName" name="name" required></div>
+      <div><label>شماره تماس</label><input type="tel" id="fPhone" name="phone" inputmode="numeric" required></div>
+      <div><label>کد دامپزشکی</label><input type="tel" id="fVet" name="vet_code" inputmode="numeric" required></div>
+      <div><label>بیشترین تناژ ماشین (تن)</label><input type="tel" id="fTon" name="tonnage" inputmode="decimal" required></div>
+    </div>
+
+    <div style="margin-top:14px">
+      <label>مقصد <span id="destCounter" style="font-weight:400;font-size:12px;color:#64748b">(۰ از ۳)</span></label>
+      <input type="text" class="dest-search" id="destSearch" placeholder="🔍 جستجوی شهر...">
+      <div class="dest-wrap">
+        <div class="chips" id="destChips">
+          {% for d in destinations %}
+            <label class="chip"><input type="checkbox" name="destinations" value="{{ d.name }}" style="display:none"><span>{{ d.name }}</span></label>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn-primary" type="submit">ثبت نوبت</button>
+      <button type="button" class="btn-ghost" id="btnManage">⚙ مدیریت مسیرها</button>
+    </div>
+  </form>
+</div>
+
+<div class="card">
+  <div class="tabs">
+    <button id="tabQueue" class="on" type="button">صف انتظار</button>
+    <button id="tabLoaded" type="button">بار شده‌ها</button>
+  </div>
+  <input type="text" class="queue-search" id="queueSearch" placeholder="🔍 جستجو (نام، تلفن، پلاک، کد نوبت)">
+
+  <div class="expiry-note">نوبت‌های بیش از ۷ روز از صف حذف می‌شوند. بارهای بیش از ۷ روز از لیست بار شده‌ها نیز حذف می‌گردند.</div>
+
+  <div class="filter-row">
+    <div class="filter-label">فیلتر مقصد:</div>
+    <div class="chips" id="filterDests"></div>
+  </div>
+  <div class="filter-row">
+    <div class="filter-label">فیلتر تناژ:</div>
+    <div class="chips" id="filterTons"></div>
+  </div>
+
+  <div id="listQueue">
+    {% if not waiters %}<div class="empty">هیچ راننده‌ای در صف نیست.</div>{% endif %}
+    {% for d in waiters %}
+      <div class="item {{ 'expiring' if is_expiring_soon(d) else '' }}"
+           data-id="{{ d.id }}" data-name="{{ d.name }}" data-phone="{{ d.phone }}"
+           data-plate="{{ d.plate_two }} {{ d.plate_three }} {{ d.plate_city }}"
+           data-code="{{ d.queue_code }}" data-tonnage="{{ d.tonnage }}"
+           data-dests="{{ d.get_destinations()|join(',') }}">
+        <div class="num">{{ loop.index|fa }}</div>
+        <div class="body">
+          <div class="name">{{ d.name }}
+            <span class="qcode {{ waiting_class(d) }}">کد: {{ d.queue_code|fa }}</span>
+          </div>
+          <div class="meta">
+            <span>📞 {{ d.phone|fa }}</span>
+            <span>🩺 {{ d.vet_code|fa }}</span>
+            <span>⚖️ تناژ {{ d.tonnage|fa }} تن</span>
+            <span class="{{ waiting_class(d) }}">⏱ {{ wait_text(d) }} در انتظار</span>
+            <span class="{{ 'expire-warn' if is_expiring_soon(d) else 'expire-normal' }}">⏳ {{ expiry_text(d) }}</span>
+          </div>
+          <div class="tags" style="margin-bottom:5px"><span class="plate-view">{{ d.plate_two|fa }} ع {{ d.plate_three|fa }} ایران {{ d.plate_city|fa }}</span></div>
+          <div class="tags">{% for x in d.get_destinations() %}<span class="tag">{{ x }}</span>{% endfor %}</div>
+        </div>
+        <div class="actions">
+          <button class="btn-green" type="button" onclick="openAssign({{ d.id }})">اختصاص بار</button>
+          <form method="post" action="{{ url_for('manager_extend', did=d.id) }}" style="display:inline" onsubmit="return confirm('تایمر تمدید شود؟')">
+            <button class="btn-extend" type="submit">🔄 تمدید</button>
+          </form>
+          <form method="post" action="{{ url_for('manager_remove', did=d.id) }}" style="display:inline" onsubmit="return confirm('حذف شود؟')">
+            <button class="btn-red" type="submit">حذف</button>
+          </form>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+  <div id="listLoaded" style="display:none">
+    {% if not loadeds %}<div class="empty">هنوز باری اختصاص داده نشده.</div>{% endif %}
+    {% for d in loadeds %}
+      <div class="item" data-id="{{ d.id }}" data-name="{{ d.name }}" data-phone="{{ d.phone }}"
+           data-plate="{{ d.plate_two }} {{ d.plate_three }} {{ d.plate_city }}"
+           data-code="{{ d.queue_code }}" data-tonnage="{{ d.tonnage }}">
+        <div class="num ok">✓</div>
+        <div class="body">
+          <div class="name">{{ d.name }}<span class="qcode default">کد: {{ d.queue_code|fa }}</span></div>
+          <div class="meta">
+            <span>📞 {{ d.phone|fa }}</span>
+            <span>🩺 {{ d.vet_code|fa }}</span>
+            <span>⚖️ تناژ {{ d.tonnage|fa }} تن</span>
+            <span>🕒 {{ d.loaded_at|fadate }}</span>
+          </div>
+          <div class="tags" style="margin-bottom:5px"><span class="plate-view">{{ d.plate_two|fa }} ع {{ d.plate_three|fa }} ایران {{ d.plate_city|fa }}</span></div>
+          <div class="tags">
+            {% if d.cargo_dest %}<span class="tag green">{{ d.cargo_dest }}</span>{% endif %}
+            {% if d.cargo_name %}<span class="tag amber">{{ d.cargo_name }}</span>{% endif %}
+            {% if d.cargo_ton %}<span class="tag gray">{{ d.cargo_ton|fa }} تن</span>{% endif %}
+          </div>
+        </div>
+        <div class="actions">
+          <form method="post" action="{{ url_for('manager_back', did=d.id) }}">
+            <button class="btn-ghost" type="submit">بازگشت به صف</button>
+          </form>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="modal" id="assignModal">
+  <div class="modal-box">
+    <h3>اختصاص بار</h3>
+    <p id="assignInfo"></p>
+    <form method="post" id="assignForm">
+      <div class="f-row"><label>مقصد بار</label><select id="aDest" name="cargo_dest" required></select></div>
+      <div class="f-row"><label>نام بار</label><input type="text" id="aName" name="cargo_name"></div>
+      <div class="f-row">
+        <label>وزن بار (تن) — اختیاری</label>
+        <input type="tel" id="aTon" name="cargo_ton" inputmode="decimal">
+        <div class="warn-box" id="tonWarn"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-primary" type="submit">تأیید و انتقال</button>
+        <button class="btn-ghost" type="button" onclick="closeAssign()">انصراف</button>
+      </div>
+    </form>
+  </div>
+</div><div class="modal" id="destModal">
+  <div class="modal-box">
+    <h3>مدیریت مسیرها</h3>
+    <form method="post" action="{{ url_for('manager_dest_add') }}" style="display:flex;gap:8px;margin-bottom:12px">
+      <input type="text" name="name" placeholder="نام مسیر جدید" required>
+      <button class="btn-primary" type="submit">افزودن</button>
+    </form>
+    <div style="max-height:250px;overflow:auto">
+      {% for d in destinations %}
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 2px;border-bottom:1px solid #f1f5f9">
+          <span>{{ d.name }}</span>
+          <form method="post" action="{{ url_for('manager_dest_del', did=d.id) }}" style="display:inline" onsubmit="return confirm('حذف شود؟')">
+            <button class="btn-red" type="submit">حذف</button>
+          </form>
+        </div>
+      {% endfor %}
+    </div>
+    <div class="modal-actions"><button class="btn-ghost" type="button" onclick="document.getElementById('destModal').classList.remove('on')">بستن</button></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const wrap = document.getElementById('destChips');
+  const counter = document.getElementById('destCounter');
+  const search = document.getElementById('destSearch');
+  function refresh(){
+    const sel = wrap.querySelectorAll('input[type=checkbox]:checked');
+    counter.textContent = (${sel.length} از ۳ انتخاب شده);
+    counter.style.color = sel.length===3 ? '#16a34a' : '#64748b';
+    wrap.querySelectorAll('.chip').forEach(c => {
+      const cb = c.querySelector('input');
+      if(cb.checked){ c.classList.add('on'); cb.disabled = false; c.classList.remove('disabled'); }
+      else { c.classList.remove('on'); cb.disabled = sel.length>=3; c.classList.toggle('disabled', sel.length>=3); }
+    });
+  }
+  wrap.querySelectorAll('input[type=checkbox]').forEach(cb => cb.addEventListener('change', refresh));
+  if(search) search.addEventListener('input', e => {
+    const q = e.target.value.trim();
+    wrap.querySelectorAll('.chip').forEach(c => {
+      const t = c.querySelector('span').textContent;
+      c.style.display = (!q || t.includes(q)) ? '' : 'none';
+    });
+  });
+  refresh();
+})();
+
+(function(){
+  const two = document.getElementById('fPlateTwo');
+  const three = document.getElementById('fPlateThree');
+  const city = document.getElementById('fPlateCity');
+  const badge = document.getElementById('autoFillBadge');
+  const dup = document.getElementById('dupBadge');
+  function sync(){
+    document.getElementById('hPlateTwo').value = two.value.trim();
+    document.getElementById('hPlateThree').value = three.value.trim();
+    document.getElementById('hPlateCity').value = city.value.trim();
+  }
+  [two, three, city].forEach(el => el.addEventListener('input', () => {
+    el.value = el.value.replace(/[^0-9۰-۹]/g,'');
+    sync();
+    badge.classList.remove('on');
+    dup.classList.remove('on');
+    dup.textContent = '';
+    if(two.value.length===2 && three.value.length===3 && city.value.length===2){
+      checkPlate();
+    }
+  }));
+  function checkPlate(){
+    const url = {{ url_for('api_plate') }}?two=${encodeURIComponent(two.value)}&three=${encodeURIComponent(three.value)}&city=${encodeURIComponent(city.value)};
+    fetch(url).then(r=>r.json()).then(data => {
+      const dupEntry = [...document.querySelectorAll('#listQueue .item')].find(el => {
+        const p = el.dataset.plate.split(' ');
+        return p[0]===two.value && p[1]===three.value && p[2]===city.value;
+      });
+      if(dupEntry){
+        dup.innerHTML = ⛔ این پلاک هم‌اکنون در صف است — ${dupEntry.dataset.name} با کد ${dupEntry.dataset.code};
+        dup.classList.add('on');
+        return;
+      }
+      if(!data.found) return;
+      document.getElementById('fName').value = data.name || '';
+      document.getElementById('fPhone').value = data.phone || '';document.getElementById('fVet').value = data.vet_code || '';
+      document.getElementById('fTon').value = data.tonnage || '';
+      document.querySelectorAll('#destChips input[type=checkbox]').forEach(cb => {
+        cb.checked = (data.destinations||[]).includes(cb.value);
+        cb.dispatchEvent(new Event('change'));
+      });
+      badge.classList.add('on');
+    });
+  }
+  sync();
+})();
+
+document.getElementById('tabQueue').onclick = () => {
+  document.getElementById('tabQueue').classList.add('on');
+  document.getElementById('tabLoaded').classList.remove('on');
+  document.getElementById('listQueue').style.display = '';
+  document.getElementById('listLoaded').style.display = 'none';
+};
+document.getElementById('tabLoaded').onclick = () => {
+  document.getElementById('tabLoaded').classList.add('on');
+  document.getElementById('tabQueue').classList.remove('on');
+  document.getElementById('listLoaded').style.display = '';
+  document.getElementById('listQueue').style.display = 'none';
+};
+
+document.getElementById('queueSearch').addEventListener('input', e => {
+  const q = e.target.value.trim().toLowerCase();
+  document.querySelectorAll('#listQueue .item, #listLoaded .item').forEach(el => {
+    const hay = (el.dataset.name+' '+el.dataset.phone+' '+el.dataset.plate+' '+el.dataset.code).toLowerCase();
+    el.style.display = (!q || hay.includes(q)) ? '' : 'none';
+  });
+});
+
+(function(){
+  const destsSet = new Set();
+  const tonsSet = new Set();
+  document.querySelectorAll('#listQueue .item').forEach(el => {
+    (el.dataset.dests||'').split(',').forEach(d => d && destsSet.add(d));
+    if(el.dataset.tonnage) tonsSet.add(el.dataset.tonnage);
+  });
+  const fd = document.getElementById('filterDests');
+  fd.innerHTML = '<div class="chip on" data-d="all">همه</div>' + [...destsSet].map(d => <div class="chip" data-d="${d}">${d}</div>).join('');
+  const ft = document.getElementById('filterTons');
+  ft.innerHTML = '<div class="chip tchip on" data-t="all">همه</div>' + [...tonsSet].sort((a,b)=>Number(a)-Number(b)).map(t => <div class="chip tchip" data-t="${t}">${t} تن</div>).join('');
+  let aD = 'all', aT = 'all';
+  function apply(){
+    document.querySelectorAll('#listQueue .item').forEach(el => {
+      const okD = aD==='all'  (el.dataset.dests'').split(',').includes(aD);
+      const okT = aT==='all' || el.dataset.tonnage===aT;
+      el.style.display = (okD && okT) ? '' : 'none';
+    });
+  }
+  fd.querySelectorAll('.chip').forEach(c => c.onclick = () => {
+    fd.querySelectorAll('.chip').forEach(x => x.classList.remove('on'));
+    c.classList.add('on'); aD = c.dataset.d; apply();
+  });
+  ft.querySelectorAll('.chip').forEach(c => c.onclick = () => {
+    ft.querySelectorAll('.chip').forEach(x => x.classList.remove('on'));
+    c.classList.add('on'); aT = c.dataset.t; apply();
+  });
+})();
+
+let _pid = null;
+function openAssign(id){
+  _pid = id;
+  const el = document.querySelector(#listQueue .item[data-id="${id}"]);
+  if(!el) return;
+  const dests = (el.dataset.dests||'').split(',').filter(Boolean);
+  document.getElementById('assignInfo').innerHTML = راننده: <b>${el.dataset.name}</b> — کد: <b>${el.dataset.code}</b> — پلاک: <b>${el.dataset.plate}</b>;
+  document.getElementById('aDest').innerHTML = dests.map(d => <option value="${d}">${d}</option>).join('');
+  document.getElementById('aName').value = '';
+  document.getElementById('aTon').value = '';
+  document.getElementById('tonWarn').classList.remove('on');
+  document.getElementById('assignForm').action = /manager/assign/${id};
+  document.getElementById('assignModal').classList.add('on');
+}
+function closeAssign(){
+  document.getElementById('assignModal').classList.remove('on');
+}
+document.getElementById('aTon').addEventListener('input', () => {
+  if(!_pid) return;
+  const el = document.querySelector(#listQueue .item[data-id="${_pid}"]);if(!el) return;
+  const cargo = Number(document.getElementById('aTon').value);
+  const maxTon = Number(el.dataset.tonnage);
+  const warn = document.getElementById('tonWarn');
+  if(cargo && maxTon && cargo > maxTon){
+    warn.textContent = ⚠️ وزن بار (${cargo} تن) از تناژ ماشین (${maxTon} تن) بیشتر است!;
+    warn.classList.add('on');
+  } else { warn.classList.remove('on'); warn.textContent = ''; }
+});
+
+document.getElementById('btnManage').onclick = () => {
+  document.getElementById('destModal').classList.add('on');
+};
+</script>
+
+{% endblock %}
