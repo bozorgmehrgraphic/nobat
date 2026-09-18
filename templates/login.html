@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card auth-card">
+  <h2>ورود</h2>
+  <form method="post">
+    <label>نام کاربری</label>
+    <input type="text" name="username" required autofocus>
+    <label>رمز عبور</label>
+    <input type="password" name="password" required>
+    <button class="btn-primary" type="submit">ورود</button>
+  </form>
+  <p class="muted">راننده جدید هستید؟ <a href="{{ url_for('register') }}">ثبت‌نام کنید</a></p>
+</div>
+{% endblock %}
