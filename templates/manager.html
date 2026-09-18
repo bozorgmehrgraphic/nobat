@@ -11,6 +11,7 @@
 <div class="stats-row">
   <div class="stat">در انتظار: <b>{{ waiters|length|fa }}</b></div>
   <div class="stat">بار شده: <b>{{ loadeds|length|fa }}</b></div>
+  <div class="stat">حذف شده: <b>{{ deleted_count|fa }}</b></div>
 </div>
 
 <div class="card">
@@ -35,6 +36,7 @@
       <div><label>شماره تماس</label><input type="tel" id="fPhone" name="phone" inputmode="numeric" required></div>
       <div><label>کد دامپزشکی</label><input type="tel" id="fVet" name="vet_code" inputmode="numeric" required></div>
       <div><label>بیشترین تناژ ماشین (تن)</label><input type="tel" id="fTon" name="tonnage" inputmode="decimal" required></div>
+      <div><label>نام باربری</label><input type="text" id="fBarfoory" name="barfoory" placeholder="مثلاً باربری احمدی"></div>
     </div>
 
     <div style="margin-top:14px">
@@ -86,6 +88,7 @@
             <span class="{{ 'expire-warn' if is_expiring_soon(d) else 'expire-normal' }}">⏳ {{ expiry_text(d) }}</span>
           </div>
           <div class="tags" style="margin-bottom:5px"><span class="plate-view">{{ d.plate_two|fa }} ع {{ d.plate_three|fa }} ایران {{ d.plate_city|fa }}</span></div>
+          {% if d.barfoory %}<div style="margin-top:6px;font-size:12.5px;color:#64748b">🚚 باربری: <b>{{ d.barfoory }}</b></div>{% endif %}
           <div class="tags">{% for x in d.get_destinations() %}<span class="tag">{{ x }}</span>{% endfor %}</div>
         </div>
         <div class="actions">
@@ -114,6 +117,7 @@
             <span>🕒 {{ d.loaded_at|fadate }}</span>
           </div>
           <div class="tags" style="margin-bottom:5px"><span class="plate-view">{{ d.plate_two|fa }} ع {{ d.plate_three|fa }} ایران {{ d.plate_city|fa }}</span></div>
+          {% if d.barfoory %}<div style="margin-top:6px;font-size:12.5px;color:#64748b">🚚 باربری: <b>{{ d.barfoory }}</b></div>{% endif %}
           <div class="tags">
             {% if d.cargo_dest %}<span class="tag green">{{ d.cargo_dest }}</span>{% endif %}
             {% if d.cargo_name %}<span class="tag amber">{{ d.cargo_name }}</span>{% endif %}
@@ -242,6 +246,7 @@ function checkPlate(){
       document.getElementById('fPhone').value = data.phone || '';
       document.getElementById('fVet').value = data.vet_code || '';
       document.getElementById('fTon').value = data.tonnage || '';
+      document.getElementById('fBarfoory').value = data.barfoory || '';
       var dests = data.destinations || [];
       document.querySelectorAll('#destChips .chip').forEach(function(ch){
         if(dests.indexOf(ch.getAttribute('data-dest')) !== -1) ch.classList.add('on');
