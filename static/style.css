@@ -99,3 +99,11 @@ button{font-family:inherit;cursor:pointer;border:none;border-radius:9px;font-siz
 .qcode-lg{font-size:22px;padding:4px 14px;border-radius:8px}
 .pos-lg{font-size:22px;color:var(--blue)}
 @media(max-width:560px){.item{flex-wrap:wrap}.actions{width:100%}.actions button,.actions form{flex:1}.actions form button{width:100%}}
+.chip input[type=checkbox]{
+  position:absolute;
+  opacity:0;
+  pointer-events:none;
+  width:0;
+  height:0;
+}
+.chip{position:relative}
