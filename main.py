@@ -52,6 +52,7 @@ class DriverProfile(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), unique=True)
     vet_code = db.Column(db.String(20))
     tonnage = db.Column(db.String(20))
+    barfoory = db.Column(db.String(120))
     updated_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     user = db.relationship('User', backref='profile', uselist=False)
@@ -78,6 +79,7 @@ class KnownPlate(db.Model):
     phone = db.Column(db.String(20))
     vet_code = db.Column(db.String(20))
     tonnage = db.Column(db.String(20))
+    barfoory = db.Column(db.String(120))
     destinations_json = db.Column(db.Text, default='[]')
     last_used = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -96,6 +98,7 @@ class Driver(db.Model):
     phone = db.Column(db.String(20), nullable=False)
     vet_code = db.Column(db.String(20), nullable=False)
     tonnage = db.Column(db.String(20), nullable=False)
+    barfoory = db.Column(db.String(120))
     plate_two = db.Column(db.String(5), default='')
     plate_three = db.Column(db.String(5), default='')
     plate_city = db.Column(db.String(5), default='')
@@ -107,6 +110,9 @@ class Driver(db.Model):
     cargo_dest = db.Column(db.String(100))
     cargo_name = db.Column(db.String(200))
     cargo_ton = db.Column(db.String(20))
+    is_deleted = db.Column(db.Boolean, default=False, nullable=False)
+    deleted_at = db.Column(db.DateTime)
+    deleted_by = db.Column(db.String(120))
 
     user = db.relationship('User', backref='driver_entries')
 
@@ -223,19 +229,25 @@ def inject_helpers():
     )
 
 
+def soft_delete_driver(d, by='مدیر بارگیری'):
+    d.is_deleted = True
+    d.deleted_at = datetime.utcnow()
+    d.deleted_by = by
+
+
 def clean_expired():
     now = datetime.utcnow()
     q_limit = now - timedelta(days=QUEUE_EXPIRE_DAYS)
     l_limit = now - timedelta(days=LOADED_EXPIRE_DAYS)
     removed = 0
-    for d in Driver.query.filter_by(status='waiting').all():
+    for d in Driver.query.filter_by(status='waiting', is_deleted=False).all():
         start = d.timer_start_at or d.created_at
         if start and start < q_limit:
-            db.session.delete(d)
+            soft_delete_driver(d, by='سیستم (منقضی شده)')
             removed += 1
-    for d in Driver.query.filter_by(status='loaded').all():
+    for d in Driver.query.filter_by(status='loaded', is_deleted=False).all():
         if d.loaded_at and d.loaded_at < l_limit:
-            db.session.delete(d)
+            soft_delete_driver(d, by='سیستم (منقضی شده)')
             removed += 1
     if removed:
         db.session.commit()
@@ -351,12 +363,13 @@ def driver_dashboard():
     if current_user.is_admin:
         return redirect(url_for('manager'))
     entry = (Driver.query
-             .filter_by(user_id=current_user.id)
+             .filter_by(user_id=current_user.id, is_deleted=False)
              .filter(Driver.status.in_(['waiting', 'loaded']))
              .order_by(Driver.id.desc()).first())
     position = None
     if entry and entry.status == 'waiting':
-        waiters = Driver.query.filter_by(status='waiting').order_by(Driver.created_at).all()
+        waiters = (Driver.query.filter_by(status='waiting', is_deleted=False)
+                   .order_by(Driver.created_at).all())
         for i, d in enumerate(waiters, 1):
             if d.id == entry.id:
                 position = i
@@ -377,6 +390,7 @@ def driver_profile():
     phone = fa_to_en(request.form.get('phone', '').strip())
     vet = fa_to_en(request.form.get('vet_code', '').strip())
     tonnage = fa_to_en(request.form.get('tonnage', '').strip())
+    barfoory = request.form.get('barfoory', '').strip()
 
     if not (name and phone):
         flash('نام و شماره تماس الزامی است.', 'error')
@@ -401,6 +415,7 @@ def driver_profile():
         db.session.add(profile)
     profile.vet_code = vet
     profile.tonnage = tonnage
+    profile.barfoory = barfoory
     profile.updated_at = datetime.utcnow()
     db.session.commit()
     flash('اطلاعات پروفایل شما ذخیره شد.', 'ok')
@@ -412,7 +427,9 @@ def driver_profile():
 def driver_extend():
     if current_user.is_admin:
         abort(403)
-    entry = Driver.query.filter_by(user_id=current_user.id, status='waiting').first()
+    entry = (Driver.query
+             .filter_by(user_id=current_user.id, status='waiting', is_deleted=False)
+             .first())
     if entry:
         entry.timer_start_at = datetime.utcnow()
         db.session.commit()
@@ -427,9 +444,11 @@ def driver_extend():
 def driver_cancel():
     if current_user.is_admin:
         abort(403)
-    entry = Driver.query.filter_by(user_id=current_user.id, status='waiting').first()
+    entry = (Driver.query
+             .filter_by(user_id=current_user.id, status='waiting', is_deleted=False)
+             .first())
     if entry:
-        db.session.delete(entry)
+        soft_delete_driver(entry, by='خود راننده (لغو نوبت)')
         db.session.commit()
         flash('نوبت شما از صف حذف شد.', 'ok')
     else:
@@ -442,7 +461,9 @@ def driver_cancel():
 def driver_queue():
     if current_user.is_admin:
         abort(403)
-    existing = Driver.query.filter_by(user_id=current_user.id, status='waiting').first()
+    existing = (Driver.query
+                .filter_by(user_id=current_user.id, status='waiting', is_deleted=False)
+                .first())
     if existing:
         flash('شما هم‌اکنون در صف هستید.', 'error')
         return redirect(url_for('driver_dashboard'))
@@ -451,6 +472,7 @@ def driver_queue():
     phone = fa_to_en(request.form.get('phone', '').strip()) or current_user.phone
     vet = fa_to_en(request.form.get('vet_code', '').strip())
     tonnage = fa_to_en(request.form.get('tonnage', '').strip())
+    barfoory = request.form.get('barfoory', '').strip()
     p_two = request.form.get('plate_two', '').strip()
     p_three = request.form.get('plate_three', '').strip()
     p_city = request.form.get('plate_city', '').strip()
@@ -473,7 +495,7 @@ def driver_queue():
         return redirect(url_for('driver_dashboard'))
 
     pk = f'{p_two}-{p_three}-{p_city}'
-    for d in Driver.query.filter_by(status='waiting').all():
+    for d in Driver.query.filter_by(status='waiting', is_deleted=False).all():
         if d.plate_key == pk:
             flash('این پلاک هم‌اکنون در صف است.', 'error')
             return redirect(url_for('driver_dashboard'))
@@ -482,7 +504,7 @@ def driver_queue():
     now = datetime.utcnow()
     entry = Driver(
         user_id=current_user.id, queue_code=qcode,
-        name=name, phone=phone, vet_code=vet, tonnage=tonnage,
+        name=name, phone=phone, vet_code=vet, tonnage=tonnage, barfoory=barfoory,
         plate_two=p_two, plate_three=p_three, plate_city=p_city,
         destinations_json=json.dumps(destinations),
         status='waiting', created_at=now, timer_start_at=now,
@@ -494,8 +516,13 @@ def driver_queue():
         kp = KnownPlate(plate_key=pk)
         db.session.add(kp)
     kp.name, kp.phone, kp.vet_code, kp.tonnage = name, phone, vet, tonnage
+    kp.barfoory = barfoory
     kp.destinations_json = json.dumps(destinations)
     kp.last_used = now
+
+    profile = DriverProfile.query.filter_by(user_id=current_user.id).first()
+    if profile:
+        profile.barfoory = barfoory
 
     db.session.commit()
     flash(f'نوبت شما با کد {to_fa(qcode)} ثبت شد.', 'ok')
@@ -507,14 +534,18 @@ def driver_queue():
 @admin_required
 def manager():
     maybe_cleanup()
-    waiters = Driver.query.filter_by(status='waiting').order_by(Driver.created_at).all()
-    loadeds = Driver.query.filter_by(status='loaded').order_by(Driver.loaded_at.desc()).all()
+    waiters = (Driver.query.filter_by(status='waiting', is_deleted=False)
+               .order_by(Driver.created_at).all())
+    loadeds = (Driver.query.filter_by(status='loaded', is_deleted=False)
+               .order_by(Driver.loaded_at.desc()).all())
     destinations = Destination.query.order_by(Destination.name).all()
     db_is_postgres = app.config['SQLALCHEMY_DATABASE_URI'].startswith('postgres')
+    deleted_count = Driver.query.filter_by(is_deleted=True).count()
     return render_template('manager.html',
                            waiters=waiters, loadeds=loadeds,
                            destinations=destinations,
-                           db_is_postgres=db_is_postgres)
+                           db_is_postgres=db_is_postgres,
+                           deleted_count=deleted_count)
 
 
 @app.route('/manager/drivers')
@@ -530,6 +561,15 @@ def manager_drivers():
                            user_count=user_count)
 
 
+@app.route('/manager/deleted')
+@login_required
+@admin_required
+def manager_deleted():
+    deleted = (Driver.query.filter_by(is_deleted=True)
+               .order_by(Driver.deleted_at.desc()).all())
+    return render_template('deleted_list.html', deleted=deleted)
+
+
 @app.route('/manager/add', methods=['POST'])
 @login_required
 @admin_required
@@ -538,6 +578,7 @@ def manager_add():
     phone = fa_to_en(request.form.get('phone', '').strip())
     vet = fa_to_en(request.form.get('vet_code', '').strip())
     tonnage = fa_to_en(request.form.get('tonnage', '').strip())
+    barfoory = request.form.get('barfoory', '').strip()
     p_two = request.form.get('plate_two', '').strip()
     p_three = request.form.get('plate_three', '').strip()
     p_city = request.form.get('plate_city', '').strip()
@@ -554,7 +595,7 @@ def manager_add():
         return redirect(url_for('manager'))
 
     pk = f'{p_two}-{p_three}-{p_city}'
-    for d in Driver.query.filter_by(status='waiting').all():
+    for d in Driver.query.filter_by(status='waiting', is_deleted=False).all():
         if d.plate_key == pk:
             flash('این پلاک هم‌اکنون در صف است.', 'error')
             return redirect(url_for('manager'))
@@ -563,7 +604,7 @@ def manager_add():
     now = datetime.utcnow()
     entry = Driver(
         queue_code=qcode,
-        name=name, phone=phone, vet_code=vet, tonnage=tonnage,
+        name=name, phone=phone, vet_code=vet, tonnage=tonnage, barfoory=barfoory,
         plate_two=p_two, plate_three=p_three, plate_city=p_city,
         destinations_json=json.dumps(destinations),
         status='waiting', created_at=now, timer_start_at=now,
@@ -575,6 +616,7 @@ def manager_add():
         kp = KnownPlate(plate_key=pk)
         db.session.add(kp)
     kp.name, kp.phone, kp.vet_code, kp.tonnage = name, phone, vet, tonnage
+    kp.barfoory = barfoory
     kp.destinations_json = json.dumps(destinations)
     kp.last_used = now
 
@@ -588,7 +630,7 @@ def manager_add():
 @admin_required
 def manager_assign(did):
     d = db.session.get(Driver, did)
-    if not d:
+    if not d or d.is_deleted:
         abort(404)
     if request.method == 'POST':
         d.status = 'loaded'
@@ -607,8 +649,8 @@ def manager_assign(did):
 @admin_required
 def manager_remove(did):
     d = db.session.get(Driver, did)
-    if d:
-        db.session.delete(d)
+    if d and not d.is_deleted:
+        soft_delete_driver(d, by='مدیر بارگیری')
         db.session.commit()
     return redirect(url_for('manager'))
 
@@ -618,7 +660,7 @@ def manager_remove(did):
 @admin_required
 def manager_back(did):
     d = db.session.get(Driver, did)
-    if not d:
+    if not d or d.is_deleted:
         abort(404)
     d.status = 'waiting'
     now = datetime.utcnow()
@@ -671,6 +713,7 @@ def api_plate():
         'phone': kp.phone or '',
         'vet_code': kp.vet_code or '',
         'tonnage': kp.tonnage or '',
+        'barfoory': kp.barfoory or '',
         'destinations': kp.get_destinations(),
     })
 
