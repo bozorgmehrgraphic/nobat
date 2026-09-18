@@ -1,42 +1,6 @@
 {% extends 'base.html' %}
 {% block content %}
 
-<script>
-window.toggleDest = function(el){
-  if(!el.classList.contains('on') && document.querySelectorAll('#destChips .chip.on').length >= 3){
-    alert('حداکثر ۳ مقصد می‌توانید انتخاب کنید.');
-    return;
-  }
-  el.classList.toggle('on');
-  updateHiddenDests();
-  updateDestCounter();
-};
-window.updateHiddenDests = function(){
-  const c = document.getElementById('hiddenDests');
-  c.innerHTML = '';
-  document.querySelectorAll('#destChips .chip.on').forEach(ch => {
-    const inp = document.createElement('input');
-    inp.type = 'hidden';
-    inp.name = 'destinations';
-    inp.value = ch.dataset.dest;
-    c.appendChild(inp);
-  });
-};
-window.updateDestCounter = function(){
-  const n = document.querySelectorAll('#destChips .chip.on').length;
-  const c = document.getElementById('destCounter');
-  if(!c) return;
-  c.textContent = '(' + n + ' از ۳ انتخاب شده)';
-  c.style.color = n===3 ? '#16a34a' : '#64748b';
-};
-window.filterDests = function(q){
-  q = (q||'').trim();
-  document.querySelectorAll('#destChips .chip').forEach(ch => {
-    ch.style.display = (!q || ch.dataset.dest.indexOf(q) !== -1) ? '' : 'none';
-  });
-};
-</script>
-
 <div class="card">
   <h2>خوش آمدید {{ current_user.name }}</h2>
   <p class="muted">شماره تماس: {{ current_user.phone|fa }}</p>
@@ -63,10 +27,26 @@ window.filterDests = function(q){
       <b>{{ expiry_text(entry) }}</b>
     </div>
   </div>
+
   <div class="plate-view">{{ entry.plate_two|fa }} ع {{ entry.plate_three|fa }} ایران {{ entry.plate_city|fa }}</div>
   <div class="tags">
     {% for x in entry.get_destinations() %}<span class="tag">{{ x }}</span>{% endfor %}
   </div>
+
+  <div style="display:flex;gap:8px;margin-top:18px;flex-wrap:wrap">
+    <form method="post" action="{{ url_for('driver_extend') }}" style="display:inline" onsubmit="return confirm('آیا می‌خواهید تایمر نوبت خود را تمدید کنید؟ (۷ روز دیگر مهلت خواهید داشت)')">
+      <button class="btn-extend" type="submit">🔄 تمدید نوبت</button>
+    </form>
+    <form method="post" action="{{ url_for('driver_cancel') }}" style="display:inline" onsubmit="return confirm('آیا از لغو نوبت خود مطمئن هستید؟ این عمل قابل بازگشت نیست.')">
+      <button class="btn-red" type="submit">✗ لغو نوبت</button>
+    </form>
+  </div>
+
+  <p class="muted" style="margin-top:14px;font-size:12px;line-height:1.8">
+    ⓘ اگر خودروی شما آماده بارگیری است و منتظر بار هستید، نیازی به تمدید ندارید.
+    اگر باربری به شما گفت امروز بار نمی‌گیرید و می‌خواهید چند روز دیگر برگردید، روی «تمدید نوبت» بزنید.
+    اگر کلاً منصرف شده‌اید، روی «لغو نوبت» بزنید تا جای شما به نفر بعدی برسد.
+  </p>
 </div>
 
 {% elif entry and entry.status == 'loaded' %}
@@ -78,6 +58,7 @@ window.filterDests = function(q){
     {% if entry.cargo_name %}<div class="big-row"><span>نام بار:</span><b>{{ entry.cargo_name }}</b></div>{% endif %}
     {% if entry.cargo_ton %}<div class="big-row"><span>وزن:</span><b>{{ entry.cargo_ton|fa }} تن</b></div>{% endif %}
   </div>
+  <p class="muted" style="font-size:12px">برای دریافت اطلاعات بیشتر با مدیر بارگیری تماس بگیرید.</p>
 </div>
 
 {% else %}
@@ -98,15 +79,16 @@ window.filterDests = function(q){
     <div class="grid">
       <div><label>نام و نام خانوادگی</label><input type="text" name="name" value="{{ current_user.name }}" required></div>
       <div><label>شماره تماس</label><input type="tel" name="phone" value="{{ current_user.phone }}" inputmode="numeric" required></div>
-      <div><label>کد دامپزشکی</label><input type="tel" name="vet_code" inputmode="numeric" required></div><div><label>بیشترین تناژ (تن)</label><input type="tel" name="tonnage" inputmode="decimal" required></div>
+      <div><label>کد دامپزشکی</label><input type="tel" name="vet_code" inputmode="numeric" required></div>
+      <div><label>بیشترین تناژ (تن)</label><input type="tel" name="tonnage" inputmode="decimal" required></div>
     </div>
     <div style="margin-top:14px">
       <label>مقصد (حداکثر ۳ مورد) <span id="destCounter" style="font-weight:400;font-size:12px;color:#64748b">(۰ از ۳)</span></label>
-      <input type="text" class="dest-search" id="destSearch" placeholder="🔍 جستجوی شهر..." onkeyup="filterDests(this.value)">
+      <input type="text" class="dest-search" id="destSearch" placeholder="🔍 جستجوی شهر...">
       <div class="dest-wrap">
         <div class="chips" id="destChips">
           {% for d in all_dests %}
-            <div class="chip" data-dest="{{ d.name }}" onclick="toggleDest(this)">{{ d.name }}</div>
+            <span class="chip" data-dest="{{ d.name }}" onclick="pickDest(this)">{{ d.name }}</span>
           {% endfor %}
         </div>
       </div>
@@ -115,6 +97,43 @@ window.filterDests = function(q){
     <button class="btn-primary" type="submit" style="margin-top:14px">ثبت در صف</button>
   </form>
 </div>
+
+<script>
+function pickDest(el){
+  var c = document.querySelectorAll('#destChips .chip.on').length;
+  if(!el.classList.contains('on') && c >= 3){
+    alert('حداکثر ۳ مقصد می‌توانید انتخاب کنید.');
+    return;
+  }
+  el.classList.toggle('on');
+  refreshHidden();
+}
+function refreshHidden(){
+  var container = document.getElementById('hiddenDests');
+  container.innerHTML = '';
+  var sels = document.querySelectorAll('#destChips .chip.on');
+  for(var i = 0; i < sels.length; i++){
+    var inp = document.createElement('input');
+    inp.type = 'hidden';
+    inp.name = 'destinations';
+    inp.value = sels[i].getAttribute('data-dest');
+    container.appendChild(inp);
+  }
+  var counter = document.getElementById('destCounter');
+  if(counter){
+    counter.textContent = '(' + sels.length + ' از ۳)';
+    counter.style.color = sels.length === 3 ? '#16a34a' : '#64748b';
+  }
+}
+document.getElementById('destSearch').addEventListener('keyup', function(){
+  var q = this.value.trim();
+  var chips = document.querySelectorAll('#destChips .chip');
+  for(var i = 0; i < chips.length; i++){
+    var name = chips[i].getAttribute('data-dest') || '';
+    chips[i].style.display = (!q || name.indexOf(q) !== -1) ? '' : 'none';
+  }
+});
+</script>
 {% endif %}
 
 {% endblock %}
