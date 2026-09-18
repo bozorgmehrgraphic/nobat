@@ -1,9 +1,46 @@
 {% extends 'base.html' %}
 {% block content %}
 
+{% if not db_is_postgres %}
+<div style="background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;line-height:1.9">
+  ⚠️ <b>هشدار مهم:</b> در حال حاضر برنامه از دیتابیس موقت (SQLite) استفاده می‌کند. این یعنی با هر بار آپدیت، <b>همه نوبت‌ها و حساب‌های کاربری حذف می‌شوند</b>.<br>
+  برای حل این مشکل، باید در Railway یک دیتابیس PostgreSQL به پروژه اضافه کنید. سپس متغیر <code>DATABASE_URL</code> به‌طور خودکار تنظیم می‌شود.
+</div>
+{% else %}
+<div style="background:#dcfce7;border:1px solid #86efac;color:#15803d;padding:8px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;text-align:center">
+  ✓ اتصال به دیتابیس پایدار PostgreSQL برقرار است — اطلاعات شما محفوظ می‌ماند
+</div>
+{% endif %}
+
 <div class="stats-row">
   <div class="stat">در انتظار: <b>{{ waiters|length|fa }}</b></div>
   <div class="stat">بار شده: <b>{{ loadeds|length|fa }}</b></div>
+</div>
+
+<div class="card">
+  <h2>👤 حساب‌های کاربری راننده‌ها ({{ user_count|fa }} حساب)</h2>
+  <div style="font-size:12px;color:#64748b;margin-bottom:10px;line-height:1.9">
+    از این قسمت می‌توانید نام کاربری و رمز عبور راننده‌ها را پیدا کنید — برای مواقعی که رمزشان را فراموش کرده‌اند.
+  </div>
+  <input type="text" class="queue-search" id="userSearch" placeholder="🔍 جستجو بر اساس نام یا نام کاربری...">
+  <div id="userList">
+    {% if not credentials %}
+      <div class="empty">هنوز هیچ حسابی ثبت نشده است.</div>
+    {% endif %}
+    {% for c in credentials %}
+      <div class="item" data-username="{{ c.username }}" data-drivername="{{ c.user.name if c.user else '' }}">
+        <div class="num" style="background:#fef3c7;color:#b45309">👤</div>
+        <div class="body">
+          <div class="name">{{ c.user.name if c.user else '—' }}</div>
+          <div class="meta" style="gap:18px">
+            <span>👤 نام کاربری: <b style="color:#0f172a">{{ c.username }}</b></span>
+            <span>🔑 رمز عبور: <b style="color:#dc2626">{{ c.plain_password }}</b></span>
+            <span>📞 {{ (c.user.phone or '—')|fa if c.user else '—' }}</span>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
 </div>
 
 <div class="card">
@@ -198,6 +235,72 @@ document.getElementById('destSearch').addEventListener('keyup', function(){
     chips[i].style.display = (!q || name.indexOf(q) !== -1) ? '' : 'none';
   }
 });
+
+document.getElementById('userSearch').addEventListener('keyup', function(){
+  var q = this.value.trim().toLowerCase();
+  var items = document.querySelectorAll('#userList .item');
+  for(var i = 0; i < items.length; i++){
+    var el = items[i];
+    var hay = (el.getAttribute('data-username') + ' ' + el.getAttribute('data-drivername')).toLowerCase();
+    el.style.display = (!q || hay.indexOf(q) !== -1) ? '' : 'none';
+  }
+});
+
+(function(){
+  var two = document.getElementById('fPlateTwo');
+  var three = document.getElementById('fPlateThree');
+  var city = document.getElementById('fPlateCity');
+  if(!two || !three || !city) return;
+  [two, three, city].forEach(function(el){
+    el.addEventListener('input', function(){
+      el.value = el.value.replace(/[^0-9۰-۹]/g, '');
+      document.getElementById('autoFillBadge').classList.remove('on');
+      document.getElementById('dupBadge').classList.remove('on');
+      checkPlate();
+    });
+  });
+})();
+
+function checkPlate(){
+  var two = document.getElementById('fPlateTwo').value;
+  var three = document.getElementById('fPlateThree').value;
+  var city = document.getElementById('fPlateCity').value;
+  if(two.length !== 2 || three.length !== 3 || city.length !== 2) return;
+
+  var dupEntry = null;
+  document.querySelectorAll('#listQueue .item').forEach(function(el){
+    var p = (el.getAttribute('data-plate') || '').split(' ');
+    if(p[0] === two && p[1] === three && p[2] === city) dupEntry = el;
+  });
+  var dup = document.getElementById('dupBadge');
+  var badge = document.getElementById('autoFillBadge');
+  dup.classList.remove('on');
+  badge.classList.remove('on');
+
+  if(dupEntry){
+    dup.innerHTML = '⛔ این پلاک در صف است — ' + dupEntry.getAttribute('data-name') + ' (کد ' + dupEntry.getAttribute('data-code') + ')';
+    dup.classList.add('on');
+    return;
+  }
+
+  fetch('/api/plate?two=' + encodeURIComponent(two) + '&three=' + encodeURIComponent(three) + '&city=' + encodeURIComponent(city))
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      if(!data.found) return;
+      document.getElementById('fName').value = data.name || '';
+      document.getElementById('fPhone').value = data.phone || '';
+      document.getElementById('fVet').value = data.vet_code || '';
+      document.getElementById('fTon').value = data.tonnage || '';
+      var dests = data.destinations || [];
+      document.querySelectorAll('#destChips .chip').forEach(function(ch){
+        if(dests.indexOf(ch.getAttribute('data-dest')) !== -1) ch.classList.add('on');
+        else ch.classList.remove('on');
+      });
+      refreshHidden();
+      badge.classList.add('on');
+    })
+    .catch(function(err){ console.error(err); });
+}
 </script>
 
 {% endblock %}
