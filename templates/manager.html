@@ -1,189 +1,15 @@
 {% extends 'base.html' %}
 {% block content %}
 
-<script>
-window.toggleDest = function(el){
-  if(!el.classList.contains('on') && document.querySelectorAll('#destChips .chip.on').length >= 3){
-    alert('حداکثر ۳ مقصد می‌توانید انتخاب کنید.');
-    return;
-  }
-  el.classList.toggle('on');
-  updateHiddenDests();
-  updateDestCounter();
-};
-window.updateHiddenDests = function(){
-  const c = document.getElementById('hiddenDests');
-  c.innerHTML = '';
-  document.querySelectorAll('#destChips .chip.on').forEach(ch => {
-    const inp = document.createElement('input');
-    inp.type = 'hidden';
-    inp.name = 'destinations';
-    inp.value = ch.dataset.dest;
-    c.appendChild(inp);
-  });
-};
-window.updateDestCounter = function(){
-  const n = document.querySelectorAll('#destChips .chip.on').length;
-  const c = document.getElementById('destCounter');
-  if(!c) return;
-  c.textContent = '(' + n + ' از ۳ انتخاب شده)';
-  c.style.color = n===3 ? '#16a34a' : '#64748b';
-};
-window.filterDests = function(q){
-  q = (q||'').trim();
-  document.querySelectorAll('#destChips .chip').forEach(ch => {
-    ch.style.display = (!q || ch.dataset.dest.indexOf(q) !== -1) ? '' : 'none';
-  });
-};
-window.switchTab = function(name){
-  document.getElementById('tabQueue').classList.toggle('on', name==='queue');
-  document.getElementById('tabLoaded').classList.toggle('on', name==='loaded');
-  document.getElementById('listQueue').style.display = name==='queue' ? '' : 'none';
-  document.getElementById('listLoaded').style.display = name==='loaded' ? '' : 'none';
-};
-window.openDestModal = function(){
-  document.getElementById('destModal').classList.add('on');
-};
-window.closeDestModal = function(){
-  document.getElementById('destModal').classList.remove('on');
-};
-window.openAssign = function(id){
-  const el = document.querySelector('#listQueue .item[data-id="'+id+'"]');
-  if(!el) return;
-  const dests = (el.dataset.dests||'').split(',').filter(Boolean);
-  document.getElementById('assignInfo').innerHTML = 'راننده: <b>'+el.dataset.name+'</b> — کد: <b>'+el.dataset.code+'</b> — پلاک: <b>'+el.dataset.plate+'</b>';
-  document.getElementById('aDest').innerHTML = dests.map(d => '<option value="'+d+'">'+d+'</option>').join('');
-  document.getElementById('aName').value = '';
-  document.getElementById('aTon').value = '';
-  document.getElementById('tonWarn').classList.remove('on');
-  document.getElementById('tonWarn').textContent = '';
-  document.getElementById('assignForm').action = '/manager/assign/'+id;
-  document.getElementById('assignModal').classList.add('on');
-  window._pid = id;
-};
-window.closeAssign = function(){
-  document.getElementById('assignModal').classList.remove('on');
-};
-window.checkTonWarn = function(){
-  const id = window._pid;
-  if(!id) return;
-  const el = document.querySelector('#listQueue .item[data-id="'+id+'"]');
-  if(!el) return;
-  const cargo = Number(document.getElementById('aTon').value);
-  const maxTon = Number(el.dataset.tonnage);
-  const warn = document.getElementById('tonWarn');
-  if(cargo && maxTon && cargo > maxTon){
-    warn.textContent = '⚠️ وزن بار (' + cargo + ' تن) از تناژ ماشین (' + maxTon + ' تن) بیشتر است!';
-    warn.classList.add('on');
-  } else { warn.classList.remove('on'); warn.textContent = ''; }
-};
-window.filterQueue = function(q){
-  q = (q||'').trim().toLowerCase();
-  document.querySelectorAll('#listQueue .item, #listLoaded .item').forEach(el => {
-    const hay = (el.dataset.name+' '+el.dataset.phone+' '+el.dataset.plate+' '+el.dataset.code).toLowerCase();
-    el.style.display = (!q || hay.indexOf(q) !== -1) ? '' : 'none';
-  });
-};
-window.setFilterD = function(el, val){
-  document.querySelectorAll('#filterDests .chip').forEach(c => c.classList.remove('on'));
-  el.classList.add('on');
-  window._filterD = val;
-  window.applyFilters();
-};
-window.setFilterT = function(el, val){document.querySelectorAll('#filterTons .chip').forEach(c => c.classList.remove('on'));
-  el.classList.add('on');
-  window._filterT = val;
-  window.applyFilters();
-};
-window.applyFilters = function(){
-  document.querySelectorAll('#listQueue .item').forEach(el => {
-    const okD = window._filterD==='all'  (el.dataset.dests'').split(',').indexOf(window._filterD) !== -1;
-    const okT = window._filterT==='all' || el.dataset.tonnage===window._filterT;
-    el.style.display = (okD && okT) ? '' : 'none';
-  });
-};
-window._filterD = 'all';
-window._filterT = 'all';
-
-document.addEventListener('DOMContentLoaded', function(){
-  try {
-    const two = document.getElementById('fPlateTwo');
-    const three = document.getElementById('fPlateThree');
-    const city = document.getElementById('fPlateCity');
-    const badge = document.getElementById('autoFillBadge');
-    const dup = document.getElementById('dupBadge');
-    if(two && three && city){
-      [two, three, city].forEach(el => el.addEventListener('input', function(){
-        el.value = el.value.replace(/[^0-9۰-۹]/g,'');
-        if(badge) badge.classList.remove('on');
-        if(dup){ dup.classList.remove('on'); dup.textContent = ''; }
-        if(two.value.length===2 && three.value.length===3 && city.value.length===2){
-          checkPlate();
-        }
-      }));
-    }
-    function checkPlate(){
-      const url = '/api/plate?two='+encodeURIComponent(two.value)+'&three='+encodeURIComponent(three.value)+'&city='+encodeURIComponent(city.value);
-      fetch(url).then(r=>r.json()).then(function(data){
-        var dupEntry = Array.from(document.querySelectorAll('#listQueue .item')).find(function(el){
-          var p = (el.dataset.plate||'').split(' ');
-          return p[0]===two.value && p[1]===three.value && p[2]===city.value;
-        });
-        if(dupEntry){
-          dup.innerHTML = '⛔ این پلاک هم‌اکنون در صف است — ' + dupEntry.dataset.name + ' با کد ' + dupEntry.dataset.code;
-          dup.classList.add('on');
-          return;
-        }
-        if(!data.found) return;
-        document.getElementById('fName').value = data.name || '';
-        document.getElementById('fPhone').value = data.phone || '';
-        document.getElementById('fVet').value = data.vet_code || '';
-        document.getElementById('fTon').value = data.tonnage || '';
-        var dests = data.destinations || [];
-        document.querySelectorAll('#destChips .chip').forEach(function(ch){
-          if(dests.indexOf(ch.dataset.dest) !== -1) ch.classList.add('on');
-          else ch.classList.remove('on');
-        });
-        updateHiddenDests();
-        updateDestCounter();
-        badge.classList.add('on');
-      }).catch(function(e){ console.error(e); });
-    }
-
-    // ساخت فیلترها
-    var destsSet = {};
-    var tonsSet = {};
-    document.querySelectorAll('#listQueue .item').forEach(function(el){
-      (el.dataset.dests||'').split(',').forEach(function(d){ if(d) destsSet[d]=1; });
-      if(el.dataset.tonnage) tonsSet[el.dataset.tonnage]=1;
-    });
-    var fd = document.getElementById('filterDests');
-    if(fd){
-      var html = '<div class="chip on" onclick="setFilterD(this,\'all\')">همه</div>';
-      Object.keys(destsSet).forEach(function(d){
-        html += '<div class="chip" onclick="setFilterD(this,\''+d+'\')">'+d+'</div>';
-      });
-      fd.innerHTML = html;
-    }
-    var ft = document.getElementById('filterTons');
-    if(ft){
-      var html2 = '<div class="chip tchip on" onclick="setFilterT(this,\'all\')">همه</div>';
-      Object.keys(tonsSet).sort(function(a,b){return Number(a)-Number(b);}).forEach(function(t){
-        html2 += '<div class="chip tchip" onclick="setFilterT(this,\''+t+'\')">'+t+' تن</div>';
-      });
-      ft.innerHTML = html2;
-    }
-  } catch(e) { console.error('init error:', e); }
-});
-</script>
-
 <div class="stats-row">
   <div class="stat">در انتظار: <b>{{ waiters|length|fa }}</b></div>
   <div class="stat">بار شده: <b>{{ loadeds|length|fa }}</b></div>
 </div>
 
 <div class="card">
-  <h2>ثبت نوبت راننده</h2><form method="post" action="{{ url_for('manager_add') }}" id="addForm">
+  <h2>ثبت نوبت راننده</h2>
+
+  <form method="post" action="{{ url_for('manager_add') }}" id="addForm">
     <div class="plate-section">
       <label>شماره پلاک (اول پر شود — اگه قبلاً ثبت شده، بقیه خودکار پر می‌شود)</label>
       <div class="plate-group">
@@ -210,7 +36,7 @@ document.addEventListener('DOMContentLoaded', function(){
       <div class="dest-wrap">
         <div class="chips" id="destChips">
           {% for d in destinations %}
-            <div class="chip" data-dest="{{ d.name }}" onclick="toggleDest(this)">{{ d.name }}</div>
+            <button type="button" class="chip" data-dest="{{ d.name }}" onclick="toggleDest(this)">{{ d.name }}</button>
           {% endfor %}
         </div>
       </div>
@@ -250,14 +76,14 @@ document.addEventListener('DOMContentLoaded', function(){
            data-plate="{{ d.plate_two }} {{ d.plate_three }} {{ d.plate_city }}"
            data-code="{{ d.queue_code }}" data-tonnage="{{ d.tonnage }}"
            data-dests="{{ d.get_destinations()|join(',') }}">
-        <div class="num">{{ loop.index|fa }}</div>
-        <div class="body">
+        <div class="num">{{ loop.index|fa }}</div><div class="body">
           <div class="name">
             {{ d.name }}
             <span class="qcode {{ waiting_class(d) }}">کد: {{ d.queue_code|fa }}</span>
           </div>
           <div class="meta">
-            <span>📞 {{ d.phone|fa }}</span><span>🩺 {{ d.vet_code|fa }}</span>
+            <span>📞 {{ d.phone|fa }}</span>
+            <span>🩺 {{ d.vet_code|fa }}</span>
             <span>⚖️ تناژ {{ d.tonnage|fa }} تن</span>
             <span class="{{ waiting_class(d) }}">⏱ {{ wait_text(d) }} در انتظار</span>
             <span class="{{ 'expire-warn' if is_expiring_soon(d) else 'expire-normal' }}">⏳ {{ expiry_text(d) }}</span>
@@ -328,11 +154,10 @@ document.addEventListener('DOMContentLoaded', function(){
       </div>
     </form>
   </div>
-</div>
-
-<div class="modal" id="destModal">
+</div><div class="modal" id="destModal">
   <div class="modal-box">
-    <h3>مدیریت مسیرها</h3><form method="post" action="{{ url_for('manager_dest_add') }}" style="display:flex;gap:8px;margin-bottom:12px">
+    <h3>مدیریت مسیرها</h3>
+    <form method="post" action="{{ url_for('manager_dest_add') }}" style="display:flex;gap:8px;margin-bottom:12px">
       <input type="text" name="name" placeholder="نام مسیر جدید" required>
       <button class="btn-primary" type="submit">افزودن</button>
     </form>
@@ -349,5 +174,230 @@ document.addEventListener('DOMContentLoaded', function(){
     <div class="modal-actions"><button class="btn-ghost" type="button" onclick="closeDestModal()">بستن</button></div>
   </div>
 </div>
+
+<script>
+var _pid = null;
+var _filterD = 'all';
+var _filterT = 'all';
+
+function toggleDest(el){
+  if(!el.classList.contains('on') && document.querySelectorAll('#destChips .chip.on').length >= 3){
+    alert('حداکثر ۳ مقصد می‌توانید انتخاب کنید.');
+    return;
+  }
+  el.classList.toggle('on');
+  updateHiddenDests();
+  updateDestCounter();
+}
+
+function updateHiddenDests(){
+  var c = document.getElementById('hiddenDests');
+  c.innerHTML = '';
+  var selected = document.querySelectorAll('#destChips .chip.on');
+  for(var i=0; i<selected.length; i++){
+    var inp = document.createElement('input');
+    inp.type = 'hidden';
+    inp.name = 'destinations';
+    inp.value = selected[i].getAttribute('data-dest');
+    c.appendChild(inp);
+  }
+}
+
+function updateDestCounter(){
+  var n = document.querySelectorAll('#destChips .chip.on').length;
+  var c = document.getElementById('destCounter');
+  if(!c) return;
+  c.textContent = '(' + n + ' از ۳ انتخاب شده)';
+  c.style.color = n===3 ? '#16a34a' : '#64748b';
+}
+
+function filterDests(q){
+  q = (q||'').trim();
+  var chips = document.querySelectorAll('#destChips .chip');
+  for(var i=0; i<chips.length; i++){
+    var name = chips[i].getAttribute('data-dest') || '';
+    chips[i].style.display = (!q || name.indexOf(q) !== -1) ? '' : 'none';
+  }
+}
+
+function switchTab(name){
+  document.getElementById('tabQueue').classList.toggle('on', name==='queue');
+  document.getElementById('tabLoaded').classList.toggle('on', name==='loaded');
+  document.getElementById('listQueue').style.display = name==='queue' ? '' : 'none';
+  document.getElementById('listLoaded').style.display = name==='loaded' ? '' : 'none';
+}
+
+function openDestModal(){ document.getElementById('destModal').classList.add('on'); }
+function closeDestModal(){ document.getElementById('destModal').classList.remove('on'); }
+
+function openAssign(id){
+  var el = document.querySelector('#listQueue .item[data-id="'+id+'"]');
+  if(!el){ alert('راننده پیدا نشد'); return; }
+  var dests = (el.getAttribute('data-dests')||'').split(',').filter(function(x){return x;});
+  var name = el.getAttribute('data-name');
+  var code = el.getAttribute('data-code');
+  var plate = el.getAttribute('data-plate');
+  document.getElementById('assignInfo').innerHTML = 'راننده: <b>'+name+'</b> — کد: <b>'+code+'</b> — پلاک: <b>'+plate+'</b>';
+  var sel = document.getElementById('aDest');
+  sel.innerHTML = '';
+  for(var i=0; i<dests.length; i++){
+    var o = document.createElement('option');
+    o.value = dests[i];
+    o.textContent = dests[i];
+    sel.appendChild(o);
+  }
+  document.getElementById('aName').value = '';
+  document.getElementById('aTon').value = '';
+  document.getElementById('tonWarn').classList.remove('on');
+  document.getElementById('tonWarn').textContent = '';
+  document.getElementById('assignForm').action = '/manager/assign/'+id;
+  document.getElementById('assignModal').classList.add('on');
+  _pid = id;
+}
+
+function closeAssign(){
+  document.getElementById('assignModal').classList.remove('on');
+  _pid = null;
+}function checkTonWarn(){
+  if(!_pid) return;
+  var el = document.querySelector('#listQueue .item[data-id="'+_pid+'"]');
+  if(!el) return;
+  var cargo = Number(document.getElementById('aTon').value);
+  var maxTon = Number(el.getAttribute('data-tonnage'));
+  var warn = document.getElementById('tonWarn');
+  if(cargo && maxTon && cargo > maxTon){
+    warn.textContent = '⚠️ وزن بار (' + cargo + ' تن) از تناژ ماشین (' + maxTon + ' تن) بیشتر است!';
+    warn.classList.add('on');
+  } else {
+    warn.classList.remove('on');
+    warn.textContent = '';
+  }
+}
+
+function filterQueue(q){
+  q = (q||'').trim().toLowerCase();
+  var items = document.querySelectorAll('#listQueue .item, #listLoaded .item');
+  for(var i=0; i<items.length; i++){
+    var el = items[i];
+    var hay = (el.getAttribute('data-name')+' '+el.getAttribute('data-phone')+' '+el.getAttribute('data-plate')+' '+el.getAttribute('data-code')).toLowerCase();
+    el.style.display = (!q || hay.indexOf(q) !== -1) ? '' : 'none';
+  }
+}
+
+function setFilterD(el, val){
+  var chips = document.querySelectorAll('#filterDests .chip');
+  for(var i=0; i<chips.length; i++) chips[i].classList.remove('on');
+  el.classList.add('on');
+  _filterD = val;
+  applyFilters();
+}
+
+function setFilterT(el, val){
+  var chips = document.querySelectorAll('#filterTons .chip');
+  for(var i=0; i<chips.length; i++) chips[i].classList.remove('on');
+  el.classList.add('on');
+  _filterT = val;
+  applyFilters();
+}
+
+function applyFilters(){
+  var items = document.querySelectorAll('#listQueue .item');
+  for(var i=0; i<items.length; i++){
+    var el = items[i];
+    var elDests = (el.getAttribute('data-dests')||'').split(',');
+    var okD = _filterD==='all' || elDests.indexOf(_filterD) !== -1;
+    var okT = _filterT==='all' || el.getAttribute('data-tonnage')===_filterT;
+    el.style.display = (okD && okT) ? '' : 'none';
+  }
+}
+
+function buildFilters(){
+  var destsSet = {};
+  var tonsSet = {};
+  var items = document.querySelectorAll('#listQueue .item');
+  for(var i=0; i<items.length; i++){
+    var el = items[i];
+    var ds = (el.getAttribute('data-dests')||'').split(',');
+    for(var j=0; j<ds.length; j++){ if(ds[j]) destsSet[ds[j]] = 1; }
+    var t = el.getAttribute('data-tonnage');
+    if(t) tonsSet[t] = 1;
+  }
+  var fd = document.getElementById('filterDests');
+  var html = '<button type="button" class="chip on" onclick="setFilterD(this,\'all\')">همه</button>';
+  for(var d in destsSet){
+    html += '<button type="button" class="chip" onclick="setFilterD(this,\''+d+'\')">'+d+'</button>';
+  }
+  fd.innerHTML = html;
+
+  var ft = document.getElementById('filterTons');
+  var tons = Object.keys(tonsSet).sort(function(a,b){return Number(a)-Number(b);});
+  var html2 = '<button type="button" class="chip tchip on" onclick="setFilterT(this,\'all\')">همه</button>';
+  for(var k=0; k<tons.length; k++){
+    html2 += '<button type="button" class="chip tchip" onclick="setFilterT(this,\''+tons[k]+'\')">'+tons[k]+' تن</button>';
+  }
+  ft.innerHTML = html2;
+}
+
+function checkPlate(){
+  var two = document.getElementById('fPlateTwo').value;
+  var three = document.getElementById('fPlateThree').value;
+  var city = document.getElementById('fPlateCity').value;
+  if(two.length!==2  three.length!==3  city.length!==2) return;
+
+  // چک تکراری در صف
+  var dupEntry = null;
+  var items = document.querySelectorAll('#listQueue .item');
+  for(var i=0; i<items.length; i++){
+    var p = (items[i].getAttribute('data-plate')||'').split(' ');
+    if(p[0]===two && p[1]===three && p[2]===city){ dupEntry = items[i]; break; }
+  }
+  var dup = document.getElementById('dupBadge');
+  var badge = document.getElementById('autoFillBadge');
+  dup.classList.remove('on');
+  badge.classList.remove('on');
+
+  if(dupEntry){
+    dup.innerHTML = '⛔ این پلاک هم‌اکنون در صف است — ' + dupEntry.getAttribute('data-name') + ' با کد ' + dupEntry.getAttribute('data-code');
+    dup.classList.add('on');
+    return;
+  }fetch('/api/plate?two='+encodeURIComponent(two)+'&three='+encodeURIComponent(three)+'&city='+encodeURIComponent(city))
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      if(!data.found) return;
+      document.getElementById('fName').value = data.name || '';
+      document.getElementById('fPhone').value = data.phone || '';
+      document.getElementById('fVet').value = data.vet_code || '';
+      document.getElementById('fTon').value = data.tonnage || '';
+      var dests = data.destinations || [];
+      var chips = document.querySelectorAll('#destChips .chip');
+      for(var i=0; i<chips.length; i++){
+        var dname = chips[i].getAttribute('data-dest');
+        if(dests.indexOf(dname) !== -1) chips[i].classList.add('on');
+        else chips[i].classList.remove('on');
+      }
+      updateHiddenDests();
+      updateDestCounter();
+      badge.classList.add('on');
+    })
+    .catch(function(err){ console.error(err); });
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+  var two = document.getElementById('fPlateTwo');
+  var three = document.getElementById('fPlateThree');
+  var city = document.getElementById('fPlateCity');
+  if(two && three && city){
+    [two, three, city].forEach(function(el){
+      el.addEventListener('input', function(){
+        el.value = el.value.replace(/[^0-9۰-۹]/g,'');
+        document.getElementById('autoFillBadge').classList.remove('on');
+        document.getElementById('dupBadge').classList.remove('on');
+        checkPlate();
+      });
+    });
+  }
+  buildFilters();
+});
+</script>
 
 {% endblock %}
