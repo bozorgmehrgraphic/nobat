@@ -109,3 +109,5 @@ button{font-family:inherit;cursor:pointer;border:none;border-radius:9px;font-siz
 .chip{position:relative}
 .chip{cursor:pointer;user-select:none}
 .chip.on{background:var(--blue);color:#fff;border-color:var(--blue)}
+.btn-green{display:inline-block;text-decoration:none;border-radius:9px;cursor:pointer;text-align:center}
+.btn-green:hover{background:#15803d;color:#fff}
