@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div style="margin-bottom:14px">
+  <a class="btn-ghost" href="{{ url_for('manager') }}">← بازگشت به پنل مدیر</a>
+</div>
+
+<div class="card">
+  <h2>🗑 گزارش حذف شده‌ها</h2>
+  <div style="font-size:12px;color:#64748b;margin-bottom:14px;line-height:1.9">
+    این گزارش فقط جهت اطلاع و پیگیری است. امکان بازگرداندن یا حذف مجدد وجود ندارد.
+  </div>
+
+  {% if not deleted %}
+    <div class="empty">هنوز چیزی حذف نشده است.</div>
+  {% endif %}
+
+  {% for d in deleted %}
+    <div class="item" style="border-color:#fecaca;background:#fef2f2">
+      <div class="num" style="background:#fee2e2;color:#b91c1c">🗑</div>
+      <div class="body">
+        <div class="name">
+          {{ d.name }}
+          {% if d.queue_code %}<span class="qcode default">کد: {{ d.queue_code|fa }}</span>{% endif %}
+        </div>
+        <div class="meta">
+          <span>📞 {{ d.phone|fa }}</span>
+          <span>🩺 {{ d.vet_code|fa }}</span>
+          <span>⚖️ تناژ {{ d.tonnage|fa }} تن</span>
+          {% if d.barfoory %}<span>🚚 {{ d.barfoory }}</span>{% endif %}
+        </div>
+        <div class="tags" style="margin-top:8px">
+          <span class="plate-view">{{ d.plate_two|fa }} ع {{ d.plate_three|fa }} ایران {{ d.plate_city|fa }}</span>
+        </div>
+        <div class="tags">
+          {% for x in d.get_destinations() %}<span class="tag">{{ x }}</span>{% endfor %}
+        </div>
+        <div class="meta" style="margin-top:10px;padding-top:10px;border-top:1px dashed #fecaca">
+          <span>🗑 <b>حذف شده در:</b> {{ d.deleted_at|fadate }}</span>
+          <span>👤 <b>حذف کننده:</b> {{ d.deleted_by or 'نامشخص' }}</span>
+          <span>📌 <b>وضعیت قبلی:</b> {% if d.cargo_dest %}بار گرفته{% else %}در صف انتظار{% endif %}</span>
+        </div>
+      </div>
+    </div>
+  {% endfor %}
+</div>
+
+{% endblock %}
