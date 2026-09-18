@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="card" style="max-width:520px;margin:20px auto">
+  <h2>🚛 اختصاص بار به راننده</h2>
+
+  <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px;margin-bottom:18px">
+    <div style="font-weight:700;font-size:16px;margin-bottom:8px">{{ d.name }}</div>
+    <div style="font-size:13px;color:#64748b;display:flex;gap:14px;flex-wrap:wrap">
+      <span>📞 {{ d.phone|fa }}</span>
+      <span>🩺 {{ d.vet_code|fa }}</span>
+      <span>⚖️ تناژ {{ d.tonnage|fa }} تن</span>
+    </div>
+    <div style="margin-top:10px;font-size:13px;color:#64748b">
+      پلاک: <span class="plate-view">{{ d.plate_two|fa }} ع {{ d.plate_three|fa }} ایران {{ d.plate_city|fa }}</span>
+    </div>
+    <div style="margin-top:10px;font-size:13px;color:#64748b">
+      کد نوبت: <b>{{ d.queue_code|fa }}</b>
+    </div>
+  </div>
+
+  <form method="post">
+    <div class="f-row">
+      <label>مقصد بار (الزامی)</label>
+      <select name="cargo_dest" required>
+        {% for dest in d.get_destinations() %}
+          <option value="{{ dest }}">{{ dest }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="f-row">
+      <label>نام بار (اختیاری)</label>
+      <input type="text" name="cargo_name" placeholder="مثلاً میلگرد آجدار">
+    </div>
+
+    <div class="f-row">
+      <label>وزن بار به تن (اختیاری)</label>
+      <input type="tel" name="cargo_ton" inputmode="decimal" placeholder="">
+    </div>
+
+    <div style="display:flex;gap:8px;margin-top:18px">
+      <button class="btn-primary" type="submit">✓ تأیید و انتقال به بار شده‌ها</button>
+      <a class="btn-ghost" href="{{ url_for('manager') }}">انصراف</a>
+    </div>
+  </form>
+</div>
+
+{% endblock %}
