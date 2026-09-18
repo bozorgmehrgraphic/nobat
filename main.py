@@ -26,7 +26,6 @@ login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 login_manager.login_message = 'لطفاً وارد شوید.'
 
-# ثابت‌ها
 QUEUE_EXPIRE_DAYS = 7
 LOADED_EXPIRE_DAYS = 7
 WAIT_GREEN_DAYS = 2
@@ -49,10 +48,6 @@ class User(UserMixin, db.Model):
         return check_password_hash(self.password_hash, pw)
 
 
-class Destination(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), unique=True, nullable=False)
-
 class DriverCredential(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), unique=True)
@@ -61,7 +56,13 @@ class DriverCredential(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     user = db.relationship('User', backref='credential_info')
-  
+
+
+class Destination(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), unique=True, nullable=False)
+
+
 class KnownPlate(db.Model):
     plate_key = db.Column(db.String(20), primary_key=True)
     name = db.Column(db.String(120))
@@ -90,7 +91,7 @@ class Driver(db.Model):
     plate_three = db.Column(db.String(5), default='')
     plate_city = db.Column(db.String(5), default='')
     destinations_json = db.Column(db.Text, default='[]')
-    status = db.Column(db.String(20), default='waiting')  # waiting | loaded
+    status = db.Column(db.String(20), default='waiting')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     timer_start_at = db.Column(db.DateTime, default=datetime.utcnow)
     loaded_at = db.Column(db.DateTime)
@@ -115,8 +116,7 @@ class Driver(db.Model):
 PERSIAN_DIGITS = '۰۱۲۳۴۵۶۷۸۹'
 EN_DIGITS = '0123456789'
 _TR_FA = str.maketrans(EN_DIGITS, PERSIAN_DIGITS)
-_TR_EN = str.maketrans(PERSIAN_DIGITS + '٠١٢٣٤٥٦٧٨٩',
-                       EN_DIGITS + EN_DIGITS)
+_TR_EN = str.maketrans(PERSIAN_DIGITS + '٠١٢٣٤٥٦٧٨٩', EN_DIGITS + EN_DIGITS)
 
 
 def to_fa(s):
@@ -322,6 +322,9 @@ def register():
             user.set_password(password)
             db.session.add(user)
             db.session.commit()
+            cred = DriverCredential(user_id=user.id, username=username, plain_password=password)
+            db.session.add(cred)
+            db.session.commit()
             login_user(user)
             flash('ثبت‌نام با موفقیت انجام شد.', 'ok')
             return redirect(url_for('driver_dashboard'))
@@ -357,6 +360,7 @@ def driver_dashboard():
                            entry=entry, position=position,
                            all_dests=all_dests)
 
+
 @app.route('/driver/extend', methods=['POST'])
 @login_required
 def driver_extend():
@@ -385,6 +389,7 @@ def driver_cancel():
     else:
         flash('شما در صف نیستید.', 'error')
     return redirect(url_for('driver_dashboard'))
+
 
 @app.route('/driver/queue', methods=['POST'])
 @login_required
@@ -460,9 +465,17 @@ def manager():
     waiters = Driver.query.filter_by(status='waiting').order_by(Driver.created_at).all()
     loadeds = Driver.query.filter_by(status='loaded').order_by(Driver.loaded_at.desc()).all()
     destinations = Destination.query.order_by(Destination.name).all()
+    credentials = (DriverCredential.query
+                   .join(User, DriverCredential.user_id == User.id)
+                   .order_by(DriverCredential.created_at.desc()).all())
+    db_is_postgres = app.config['SQLALCHEMY_DATABASE_URI'].startswith('postgres')
+    user_count = User.query.filter_by(is_admin=False).count()
     return render_template('manager.html',
                            waiters=waiters, loadeds=loadeds,
-                           destinations=destinations)
+                           destinations=destinations,
+                           credentials=credentials,
+                           db_is_postgres=db_is_postgres,
+                           user_count=user_count)
 
 
 @app.route('/manager/add', methods=['POST'])
@@ -535,6 +548,7 @@ def manager_assign(did):
         flash('بار با موفقیت اختصاص یافت.', 'ok')
         return redirect(url_for('manager'))
     return render_template('assign.html', d=d)
+
 
 @app.route('/manager/remove/<int:did>', methods=['POST'])
 @login_required
@@ -655,6 +669,12 @@ def init_db():
                 db.session.add(u)
                 db.session.commit()
                 print(f'Admin user created: {admin_user} / {admin_pass}')
+            for u in User.query.filter_by(is_admin=False).all():
+                if not DriverCredential.query.filter_by(user_id=u.id).first():
+                    cred = DriverCredential(user_id=u.id, username=u.username,
+                                            plain_password='(قبل از این نسخه ثبت شده)')
+                    db.session.add(cred)
+            db.session.commit()
         except Exception as e:
             print(f'DB init error: {e}')
 
@@ -664,4 +684,4 @@ init_db()
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    app.run(host='0.0.0.0', port=port, debug=False)
