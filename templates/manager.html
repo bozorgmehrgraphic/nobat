@@ -2,7 +2,7 @@
 {% block content %}
 
 <div style="background:#dcfce7;color:#15803d;padding:8px 14px;border-radius:8px;font-size:12px;margin-bottom:12px;text-align:center;font-weight:700">
-  نسخه ۵ — اگر این جعبه سبز را می‌بینید، فایل به‌روز شده
+  نسخه ۶ — بدون دکمه تمدید در پنل مدیر
 </div>
 
 <div class="stats-row">
@@ -76,7 +76,8 @@
             <span class="qcode {{ waiting_class(d) }}">کد: {{ d.queue_code|fa }}</span>
           </div>
           <div class="meta">
-            <span>📞 {{ d.phone|fa }}</span><span>🩺 {{ d.vet_code|fa }}</span>
+            <span>📞 {{ d.phone|fa }}</span>
+            <span>🩺 {{ d.vet_code|fa }}</span>
             <span>⚖️ تناژ {{ d.tonnage|fa }} تن</span>
             <span class="{{ waiting_class(d) }}">⏱ {{ wait_text(d) }} در انتظار</span>
             <span class="{{ 'expire-warn' if is_expiring_soon(d) else 'expire-normal' }}">⏳ {{ expiry_text(d) }}</span>
@@ -86,10 +87,7 @@
         </div>
         <div class="actions">
           <a class="btn-green" href="{{ url_for('manager_assign', did=d.id) }}">اختصاص بار</a>
-          <form method="post" action="{{ url_for('manager_extend', did=d.id) }}" style="display:inline" onsubmit="return confirm('تایمر تمدید شود؟')">
-            <button class="btn-extend" type="submit">🔄 تمدید</button>
-          </form>
-          <form method="post" action="{{ url_for('manager_remove', did=d.id) }}" style="display:inline" onsubmit="return confirm('حذف شود؟')">
+          <form method="post" action="{{ url_for('manager_remove', did=d.id) }}" style="display:inline" onsubmit="return confirm('این راننده از صف حذف شود؟')">
             <button class="btn-red" type="submit">حذف</button>
           </form>
         </div>
@@ -159,7 +157,9 @@ function pickDest(el){
   }
   el.classList.toggle('on');
   refreshHidden();
-}function refreshHidden(){
+}
+
+function refreshHidden(){
   var container = document.getElementById('hiddenDests');
   container.innerHTML = '';
   var sels = document.querySelectorAll('#destChips .chip.on');
