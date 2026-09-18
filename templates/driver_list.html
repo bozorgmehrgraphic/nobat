@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div style="margin-bottom:14px">
+  <a class="btn-ghost" href="{{ url_for('manager') }}">← بازگشت به پنل مدیر</a>
+</div>
+
+<div class="card">
+  <h2>👤 حساب‌های کاربری راننده‌ها ({{ user_count|fa }} حساب)</h2>
+  <div style="font-size:12px;color:#64748b;margin-bottom:10px;line-height:1.9">
+    از این قسمت می‌توانید نام کاربری و رمز عبور راننده‌ها را پیدا کنید — برای مواقعی که رمزشان را فراموش کرده‌اند.
+  </div>
+  <input type="text" class="queue-search" id="userSearch" placeholder="🔍 جستجو بر اساس نام یا نام کاربری...">
+  <div id="userList">
+    {% if not credentials %}
+      <div class="empty">هنوز هیچ حسابی ثبت نشده است.</div>
+    {% endif %}
+    {% for c in credentials %}
+      <div class="item" data-username="{{ c.username }}" data-drivername="{{ c.user.name if c.user else '' }}">
+        <div class="num" style="background:#fef3c7;color:#b45309">👤</div>
+        <div class="body">
+          <div class="name">{{ c.user.name if c.user else '—' }}</div>
+          <div class="meta" style="gap:18px">
+            <span>👤 نام کاربری: <b style="color:#0f172a">{{ c.username }}</b></span>
+            <span>🔑 رمز عبور: <b style="color:#dc2626">{{ c.plain_password }}</b></span>
+            <span>📞 {{ (c.user.phone or '—')|fa if c.user else '—' }}</span>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+<script>
+document.getElementById('userSearch').addEventListener('keyup', function(){
+  var q = this.value.trim().toLowerCase();
+  var items = document.querySelectorAll('#userList .item');
+  for(var i = 0; i < items.length; i++){
+    var el = items[i];
+    var hay = (el.getAttribute('data-username') + ' ' + el.getAttribute('data-drivername')).toLowerCase();
+    el.style.display = (!q || hay.indexOf(q) !== -1) ? '' : 'none';
+  }
+});
+</script>
+
+{% endblock %}
