@@ -24,6 +24,7 @@
             <span>👤 نام کاربری: <b style="color:#0f172a">{{ c.username }}</b></span>
             <span>🔑 رمز عبور: <b style="color:#dc2626">{{ c.plain_password }}</b></span>
             <span>📞 {{ (c.user.phone or '—')|fa if c.user else '—' }}</span>
+            <span>🚚 {{ c.user.profile.barfoory if c.user.profile and c.user.profile.barfoory else '—' }}</span>
           </div>
         </div>
       </div>
