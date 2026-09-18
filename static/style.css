@@ -111,3 +111,69 @@ button{font-family:inherit;cursor:pointer;border:none;border-radius:9px;font-siz
 .chip.on{background:var(--blue);color:#fff;border-color:var(--blue)}
 .btn-green{display:inline-block;text-decoration:none;border-radius:9px;cursor:pointer;text-align:center}
 .btn-green:hover{background:#15803d;color:#fff}
+/* ---------- منوی سه نقطه ---------- */
+.menu-wrap{position:relative}
+.menu-btn{background:transparent;border:none;color:var(--gray);font-size:22px;padding:2px 10px;cursor:pointer;line-height:1;border-radius:8px;font-weight:700}
+.menu-btn:hover{background:#f1f5f9;color:#0f172a}
+.menu-dropdown{position:absolute;top:calc(100% + 6px);left:0;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(15,23,42,.12);min-width:180px;padding:6px;display:none;z-index:100}
+.menu-dropdown.on{display:block}
+.menu-item{display:block;padding:9px 12px;border-radius:7px;font-size:13.5px;color:#0f172a;text-decoration:none;cursor:pointer;white-space:nowrap}
+.menu-item:hover{background:#f1f5f9}
+.menu-item span{margin-left:6px}
+
+/* ---------- حالت تاریک ---------- */
+html.dark-preload, body.dark{background:#0f172a}
+body.dark{--bg:#0f172a;--line:#334155;--gray:#94a3b8;color:#e2e8f0}
+body.dark .topbar{background:#1e293b;border-bottom-color:#334155}
+body.dark .brand{color:#f1f5f9}
+body.dark .who{color:#e2e8f0}
+body.dark .card{background:#1e293b;border-color:#334155}
+body.dark .card h2{color:#cbd5e1}
+body.dark .stat{background:#1e293b;border-color:#334155;color:#cbd5e1}
+body.dark .stat b{color:#60a5fa}
+body.dark input,
+body.dark select{background:#334155;border-color:#475569;color:#e2e8f0}
+body.dark input:focus,
+body.dark select:focus{background:#1e293b;border-color:#60a5fa}
+body.dark label{color:#94a3b8}
+body.dark .chip{background:#334155;border-color:#475569;color:#cbd5e1}
+body.dark .chip:hover{border-color:#60a5fa}
+body.dark .chip.on{background:#2563eb;color:#fff;border-color:#2563eb}
+body.dark .chip.tchip{background:#3f2f1f;border-color:#78350f;color:#fed7aa}
+body.dark .chip.tchip.on{background:#d97706;color:#fff}
+body.dark .chip.disabled{opacity:.4}
+body.dark .btn-ghost{background:#334155;color:#cbd5e1}
+body.dark .btn-ghost:hover{background:#475569}
+body.dark .menu-dropdown{background:#1e293b;border-color:#334155;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+body.dark .menu-item{color:#e2e8f0}
+body.dark .menu-item:hover{background:#334155}
+body.dark .menu-btn:hover{background:#334155;color:#f1f5f9}
+body.dark .plate-section,
+body.dark .dest-wrap{background:#0f172a;border-color:#334155}
+body.dark .plate-group{background:#0f172a;border-color:#334155}
+body.dark .plate-group input{background:#334155;color:#e2e8f0;border-color:#475569}
+body.dark .plate-group .plate-letter-fixed{background:#334155;color:#cbd5e1}
+body.dark .plate-view{background:#334155;color:#e2e8f0}
+body.dark .item{background:#1e293b;border-color:#334155}
+body.dark .item.expiring{background:#3f2f1f;border-color:#78350f}
+body.dark .num{background:#1e3a8a;color:#bfdbfe}
+body.dark .num.ok{background:#14532d;color:#bbf7d0}
+body.dark .qcode.fresh{background:#14532d;color:#bbf7d0;border-color:#166534}
+body.dark .qcode.mid{background:#3f2f1f;color:#fed7aa;border-color:#92400e}
+body.dark .qcode.late{background:#450a0a;color:#fecaca;border-color:#991b1b}
+body.dark .qcode.default{background:#334155;color:#cbd5e1;border-color:#475569}
+body.dark .tag{background:#1e3a8a;color:#bfdbfe}
+body.dark .tag.green{background:#14532d;color:#bbf7d0}
+body.dark .tag.gray{background:#334155;color:#cbd5e1}
+body.dark .tag.amber{background:#3f2f1f;color:#fed7aa}
+body.dark .expiry-note{background:#1e3a8a;border-color:#1e40af;color:#bfdbfe}
+body.dark .empty{color:#64748b}
+body.dark .modal-box{background:#1e293b;color:#e2e8f0}
+body.dark .modal-box h3{color:#f1f5f9}
+body.dark .flash.ok{background:#14532d;color:#bbf7d0}
+body.dark .flash.error{background:#450a0a;color:#fecaca}
+body.dark .status-card.waiting{background:#1e3a8a;border-color:#1e40af}
+body.dark .status-card.loaded{background:#14532d;border-color:#166534}
+body.dark .big-row{border-bottom-color:#475569}
+body.dark .muted{color:#94a3b8}
+body.dark a{color:#60a5fa}
