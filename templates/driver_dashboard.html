@@ -71,7 +71,7 @@
       <div class="dest-wrap">
         <div class="chips" id="destChips">
           {% for d in all_dests %}
-            <label class="chip"><input type="checkbox" name="destinations" value="{{ d.name }}" style="display:none"><span>{{ d.name }}</span></label>
+            <label class="chip"><input type="checkbox" name="destinations" value="{{ d.name }}"><span>{{ d.name }}</span></label>
           {% endfor %}
         </div>
       </div>
@@ -85,16 +85,16 @@
   if(!wrap) return;
   const counter = document.getElementById('destCounter');
   const search = document.getElementById('destSearch');
-  wrap.querySelectorAll('input[type=checkbox]').forEach(cb => {cb.addEventListener('change', () => {
-      const sel = wrap.querySelectorAll('input[type=checkbox]:checked');
-      counter.textContent = (${sel.length} از ۳ انتخاب شده);
-      wrap.querySelectorAll('.chip').forEach(c => {
-        const cbox = c.querySelector('input');
-        if(cbox.checked){ c.classList.add('on'); }
-        else { c.classList.remove('on'); c.classList.toggle('disabled', sel.length>=3); cbox.disabled = sel.length>=3; }
-      });
+  function refresh(){
+    const sel = wrap.querySelectorAll('input[type=checkbox]:checked');counter.textContent = (${sel.length} از ۳ انتخاب شده);
+    counter.style.color = sel.length===3 ? '#16a34a' : '#64748b';
+    wrap.querySelectorAll('.chip').forEach(c => {
+      const cb = c.querySelector('input');
+      if(cb.checked){ c.classList.add('on'); cb.disabled = false; c.classList.remove('disabled'); }
+      else { c.classList.remove('on'); cb.disabled = sel.length>=3; c.classList.toggle('disabled', sel.length>=3); }
     });
-  });
+  }
+  wrap.querySelectorAll('input[type=checkbox]').forEach(cb => cb.addEventListener('change', refresh));
   if(search) search.addEventListener('input', e => {
     const q = e.target.value.trim();
     wrap.querySelectorAll('.chip').forEach(c => {
@@ -102,6 +102,7 @@
       c.style.display = (!q || t.includes(q)) ? '' : 'none';
     });
   });
+  refresh();
 })();
 </script>
 {% endif %}
