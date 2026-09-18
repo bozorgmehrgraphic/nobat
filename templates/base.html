@@ -27,6 +27,7 @@
         </div>
         {% if current_user.is_admin %}
         <a class="menu-item" href="{{ url_for('manager_drivers') }}">👤 راننده‌ها</a>
+        <a class="menu-item" href="{{ url_for('manager_deleted') }}">🗑 حذف شده‌ها</a>
         {% endif %}
         <a class="menu-item" href="{{ url_for('logout') }}">🚪 خروج</a>
       </div>
