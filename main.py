@@ -53,7 +53,15 @@ class Destination(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), unique=True, nullable=False)
 
+class DriverCredential(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), unique=True)
+    username = db.Column(db.String(80))
+    plain_password = db.Column(db.String(255))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    user = db.relationship('User', backref='credential_info')
+  
 class KnownPlate(db.Model):
     plate_key = db.Column(db.String(20), primary_key=True)
     name = db.Column(db.String(120))
