@@ -349,6 +349,34 @@ def driver_dashboard():
                            entry=entry, position=position,
                            all_dests=all_dests)
 
+@app.route('/driver/extend', methods=['POST'])
+@login_required
+def driver_extend():
+    if current_user.is_admin:
+        abort(403)
+    entry = Driver.query.filter_by(user_id=current_user.id, status='waiting').first()
+    if entry:
+        entry.timer_start_at = datetime.utcnow()
+        db.session.commit()
+        flash('تایمر نوبت شما تمدید شد. ۷ روز دیگر مهلت دارید.', 'ok')
+    else:
+        flash('شما در صف نیستید.', 'error')
+    return redirect(url_for('driver_dashboard'))
+
+
+@app.route('/driver/cancel', methods=['POST'])
+@login_required
+def driver_cancel():
+    if current_user.is_admin:
+        abort(403)
+    entry = Driver.query.filter_by(user_id=current_user.id, status='waiting').first()
+    if entry:
+        db.session.delete(entry)
+        db.session.commit()
+        flash('نوبت شما از صف حذف شد.', 'ok')
+    else:
+        flash('شما در صف نیستید.', 'error')
+    return redirect(url_for('driver_dashboard'))
 
 @app.route('/driver/queue', methods=['POST'])
 @login_required
