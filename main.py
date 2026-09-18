@@ -482,22 +482,23 @@ def manager_add():
     return redirect(url_for('manager'))
 
 
-@app.route('/manager/assign/<int:did>', methods=['POST'])
+@app.route('/manager/assign/<int:did>', methods=['GET', 'POST'])
 @login_required
 @admin_required
 def manager_assign(did):
     d = db.session.get(Driver, did)
     if not d:
         abort(404)
-    d.status = 'loaded'
-    d.loaded_at = datetime.utcnow()
-    d.cargo_dest = request.form.get('cargo_dest', '').strip()
-    d.cargo_name = request.form.get('cargo_name', '').strip()
-    d.cargo_ton = fa_to_en(request.form.get('cargo_ton', '').strip())
-    db.session.commit()
-    flash('بار اختصاص یافت.', 'ok')
-    return redirect(url_for('manager'))
-
+    if request.method == 'POST':
+        d.status = 'loaded'
+        d.loaded_at = datetime.utcnow()
+        d.cargo_dest = request.form.get('cargo_dest', '').strip()
+        d.cargo_name = request.form.get('cargo_name', '').strip()
+        d.cargo_ton = fa_to_en(request.form.get('cargo_ton', '').strip())
+        db.session.commit()
+        flash('بار با موفقیت اختصاص یافت.', 'ok')
+        return redirect(url_for('manager'))
+    return render_template('assign.html', d=d)
 
 @app.route('/manager/remove/<int:did>', methods=['POST'])
 @login_required
