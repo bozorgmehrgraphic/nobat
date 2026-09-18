@@ -1,10 +1,6 @@
 {% extends 'base.html' %}
 {% block content %}
 
-<div style="background:#dcfce7;color:#15803d;padding:8px 14px;border-radius:8px;font-size:12px;margin-bottom:12px;text-align:center;font-weight:700">
-  نسخه ۶ — بدون دکمه تمدید در پنل مدیر
-</div>
-
 <div class="stats-row">
   <div class="stat">در انتظار: <b>{{ waiters|length|fa }}</b></div>
   <div class="stat">بار شده: <b>{{ loadeds|length|fa }}</b></div>
