@@ -1,6 +1,11 @@
 {% extends 'base.html' %}
 {% block content %}
 
+<!-- نشانه تأیید نسخه — اگه این رو نمی‌بینید، فایل آپلود نشده -->
+<div style="background:#fef3c7;color:#b45309;padding:8px 14px;border-radius:8px;font-size:12px;margin-bottom:12px;text-align:center;font-weight:700">
+  نسخه ۳ — مدیر بارگیری
+</div>
+
 <div class="stats-row">
   <div class="stat">در انتظار: <b>{{ waiters|length|fa }}</b></div>
   <div class="stat">بار شده: <b>{{ loadeds|length|fa }}</b></div>
@@ -11,7 +16,7 @@
 
   <form method="post" action="{{ url_for('manager_add') }}" id="addForm">
     <div class="plate-section">
-      <label>شماره پلاک (اول پر شود — اگه قبلاً ثبت شده، بقیه خودکار پر می‌شود)</label>
+      <label>شماره پلاک</label>
       <div class="plate-group">
         <input class="p2" id="fPlateTwo" name="plate_two" maxlength="2" inputmode="numeric" placeholder="۱۲" required>
         <span class="plate-letter-fixed">ع</span>
@@ -19,7 +24,7 @@
         <span class="plate-ir">ایران</span>
         <input class="pC" id="fPlateCity" name="plate_city" maxlength="2" inputmode="numeric" placeholder="۶۷" required>
       </div>
-      <div class="auto-fill-badge" id="autoFillBadge">✓ اطلاعات این پلاک از قبل موجود بود و خودکار پر شد</div>
+      <div class="auto-fill-badge" id="autoFillBadge">✓ اطلاعات این پلاک خودکار پر شد</div>
       <div class="dup-badge" id="dupBadge"></div>
     </div>
 
@@ -36,7 +41,7 @@
       <div class="dest-wrap">
         <div class="chips" id="destChips">
           {% for d in destinations %}
-            <button type="button" class="chip" data-dest="{{ d.name }}" onclick="toggleDest(this)">{{ d.name }}</button>
+            <span class="chip" data-dest="{{ d.name }}" onclick="toggleDest(this)">{{ d.name }}</span>
           {% endfor %}
         </div>
       </div>
@@ -45,7 +50,7 @@
 
     <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn-primary" type="submit">ثبت نوبت</button>
-      <button type="button" class="btn-ghost" onclick="openDestModal()">⚙ مدیریت مسیرها</button>
+      <span class="btn-ghost" style="cursor:pointer" onclick="openDestModal()">⚙ مدیریت مسیرها</span>
     </div>
   </form>
 </div>
@@ -55,7 +60,7 @@
     <button id="tabQueue" class="on" type="button" onclick="switchTab('queue')">صف انتظار</button>
     <button id="tabLoaded" type="button" onclick="switchTab('loaded')">بار شده‌ها</button>
   </div>
-  <input type="text" class="queue-search" id="queueSearch" placeholder="🔍 جستجو (نام، تلفن، پلاک، کد نوبت)" onkeyup="filterQueue(this.value)">
+  <input type="text" class="queue-search" id="queueSearch" placeholder="🔍 جستجو..." onkeyup="filterQueue(this.value)">
 
   <div class="expiry-note">نوبت‌های بیش از ۷ روز از صف حذف می‌شوند. بارهای بیش از ۷ روز از لیست بار شده‌ها نیز حذف می‌گردند.</div>
 
@@ -74,9 +79,9 @@
       <div class="item {{ 'expiring' if is_expiring_soon(d) else '' }}"
            data-id="{{ d.id }}" data-name="{{ d.name }}" data-phone="{{ d.phone }}"
            data-plate="{{ d.plate_two }} {{ d.plate_three }} {{ d.plate_city }}"
-           data-code="{{ d.queue_code }}" data-tonnage="{{ d.tonnage }}"
-           data-dests="{{ d.get_destinations()|join(',') }}">
-        <div class="num">{{ loop.index|fa }}</div><div class="body">
+           data-code="{{ d.queue_code }}" data-tonnage="{{ d.tonnage }}"data-dests="{{ d.get_destinations()|join(',') }}">
+        <div class="num">{{ loop.index|fa }}</div>
+        <div class="body">
           <div class="name">
             {{ d.name }}
             <span class="qcode {{ waiting_class(d) }}">کد: {{ d.queue_code|fa }}</span>
@@ -92,7 +97,7 @@
           <div class="tags">{% for x in d.get_destinations() %}<span class="tag">{{ x }}</span>{% endfor %}</div>
         </div>
         <div class="actions">
-          <button class="btn-green" type="button" onclick="openAssign({{ d.id }})">اختصاص بار</button>
+          <span class="btn-green" style="cursor:pointer" onclick="openAssign(this)">اختصاص بار</span>
           <form method="post" action="{{ url_for('manager_extend', did=d.id) }}" style="display:inline" onsubmit="return confirm('تایمر تمدید شود؟')">
             <button class="btn-extend" type="submit">🔄 تمدید</button>
           </form>
@@ -107,7 +112,7 @@
   <div id="listLoaded" style="display:none">
     {% if not loadeds %}<div class="empty">هنوز باری اختصاص داده نشده.</div>{% endif %}
     {% for d in loadeds %}
-      <div class="item" data-id="{{ d.id }}" data-name="{{ d.name }}" data-phone="{{ d.phone }}"
+      <div class="item" data-id="{{ d.id }}" data-name="{{ d.name }}"
            data-plate="{{ d.plate_two }} {{ d.plate_three }} {{ d.plate_city }}"
            data-code="{{ d.queue_code }}" data-tonnage="{{ d.tonnage }}">
         <div class="num ok">✓</div>
@@ -145,12 +150,11 @@
       <div class="f-row"><label>نام بار</label><input type="text" id="aName" name="cargo_name"></div>
       <div class="f-row">
         <label>وزن بار (تن) — اختیاری</label>
-        <input type="tel" id="aTon" name="cargo_ton" inputmode="decimal" oninput="checkTonWarn()">
-        <div class="warn-box" id="tonWarn"></div>
+        <input type="tel" id="aTon" name="cargo_ton" inputmode="decimal">
       </div>
       <div class="modal-actions">
         <button class="btn-primary" type="submit">تأیید و انتقال</button>
-        <button class="btn-ghost" type="button" onclick="closeAssign()">انصراف</button>
+        <span class="btn-ghost" style="cursor:pointer" onclick="closeAssign()">انصراف</span>
       </div>
     </form>
   </div>
@@ -171,14 +175,12 @@
         </div>
       {% endfor %}
     </div>
-    <div class="modal-actions"><button class="btn-ghost" type="button" onclick="closeDestModal()">بستن</button></div>
+    <div class="modal-actions"><span class="btn-ghost" style="cursor:pointer" onclick="closeDestModal()">بستن</span></div>
   </div>
 </div>
 
 <script>
-var _pid = null;
-var _filterD = 'all';
-var _filterT = 'all';
+console.log('manager.html v3 loaded');
 
 function toggleDest(el){
   if(!el.classList.contains('on') && document.querySelectorAll('#destChips .chip.on').length >= 3){
@@ -192,6 +194,7 @@ function toggleDest(el){
 
 function updateHiddenDests(){
   var c = document.getElementById('hiddenDests');
+  if(!c) return;
   c.innerHTML = '';
   var selected = document.querySelectorAll('#destChips .chip.on');
   for(var i=0; i<selected.length; i++){
@@ -230,9 +233,10 @@ function switchTab(name){
 function openDestModal(){ document.getElementById('destModal').classList.add('on'); }
 function closeDestModal(){ document.getElementById('destModal').classList.remove('on'); }
 
-function openAssign(id){
-  var el = document.querySelector('#listQueue .item[data-id="'+id+'"]');
-  if(!el){ alert('راننده پیدا نشد'); return; }
+function openAssign(btn){
+  var el = btn.closest('.item');
+  if(!el){ alert('خطا: آیتم پیدا نشد'); return; }
+  var id = el.getAttribute('data-id');
   var dests = (el.getAttribute('data-dests')||'').split(',').filter(function(x){return x;});
   var name = el.getAttribute('data-name');
   var code = el.getAttribute('data-code');
@@ -248,38 +252,18 @@ function openAssign(id){
   }
   document.getElementById('aName').value = '';
   document.getElementById('aTon').value = '';
-  document.getElementById('tonWarn').classList.remove('on');
-  document.getElementById('tonWarn').textContent = '';
   document.getElementById('assignForm').action = '/manager/assign/'+id;
   document.getElementById('assignModal').classList.add('on');
-  _pid = id;
 }
 
 function closeAssign(){
   document.getElementById('assignModal').classList.remove('on');
-  _pid = null;
-}function checkTonWarn(){
-  if(!_pid) return;
-  var el = document.querySelector('#listQueue .item[data-id="'+_pid+'"]');
-  if(!el) return;
-  var cargo = Number(document.getElementById('aTon').value);
-  var maxTon = Number(el.getAttribute('data-tonnage'));
-  var warn = document.getElementById('tonWarn');
-  if(cargo && maxTon && cargo > maxTon){
-    warn.textContent = '⚠️ وزن بار (' + cargo + ' تن) از تناژ ماشین (' + maxTon + ' تن) بیشتر است!';
-    warn.classList.add('on');
-  } else {
-    warn.classList.remove('on');
-    warn.textContent = '';
-  }
-}
-
-function filterQueue(q){
+}function filterQueue(q){
   q = (q||'').trim().toLowerCase();
   var items = document.querySelectorAll('#listQueue .item, #listLoaded .item');
   for(var i=0; i<items.length; i++){
     var el = items[i];
-    var hay = (el.getAttribute('data-name')+' '+el.getAttribute('data-phone')+' '+el.getAttribute('data-plate')+' '+el.getAttribute('data-code')).toLowerCase();
+    var hay = (el.getAttribute('data-name')+' '+el.getAttribute('data-plate')+' '+el.getAttribute('data-code')).toLowerCase();
     el.style.display = (!q || hay.indexOf(q) !== -1) ? '' : 'none';
   }
 }
@@ -288,32 +272,32 @@ function setFilterD(el, val){
   var chips = document.querySelectorAll('#filterDests .chip');
   for(var i=0; i<chips.length; i++) chips[i].classList.remove('on');
   el.classList.add('on');
-  _filterD = val;
-  applyFilters();
+  applyFiltersD(val);
 }
 
 function setFilterT(el, val){
   var chips = document.querySelectorAll('#filterTons .chip');
   for(var i=0; i<chips.length; i++) chips[i].classList.remove('on');
   el.classList.add('on');
-  _filterT = val;
-  applyFilters();
+  applyFiltersT(val);
 }
 
-function applyFilters(){
+var _fD = 'all', _fT = 'all';
+function applyFiltersD(v){ _fD = v; applyAll(); }
+function applyFiltersT(v){ _fT = v; applyAll(); }
+function applyAll(){
   var items = document.querySelectorAll('#listQueue .item');
   for(var i=0; i<items.length; i++){
     var el = items[i];
-    var elDests = (el.getAttribute('data-dests')||'').split(',');
-    var okD = _filterD==='all' || elDests.indexOf(_filterD) !== -1;
-    var okT = _filterT==='all' || el.getAttribute('data-tonnage')===_filterT;
+    var ds = (el.getAttribute('data-dests')||'').split(',');
+    var okD = _fD==='all' || ds.indexOf(_fD) !== -1;
+    var okT = _fT==='all' || el.getAttribute('data-tonnage')===_fT;
     el.style.display = (okD && okT) ? '' : 'none';
   }
 }
 
 function buildFilters(){
-  var destsSet = {};
-  var tonsSet = {};
+  var destsSet = {}, tonsSet = {};
   var items = document.querySelectorAll('#listQueue .item');
   for(var i=0; i<items.length; i++){
     var el = items[i];
@@ -323,20 +307,39 @@ function buildFilters(){
     if(t) tonsSet[t] = 1;
   }
   var fd = document.getElementById('filterDests');
-  var html = '<button type="button" class="chip on" onclick="setFilterD(this,\'all\')">همه</button>';
-  for(var d in destsSet){
-    html += '<button type="button" class="chip" onclick="setFilterD(this,\''+d+'\')">'+d+'</button>';
+  if(fd){
+    var html = '<span class="chip on" style="cursor:pointer" onclick="setFilterD(this,\'all\')">همه</span>';
+    for(var d in destsSet){
+      html += '<span class="chip" style="cursor:pointer" onclick="setFilterD(this,\''+d+'\')">'+d+'</span>';
+    }
+    fd.innerHTML = html;
   }
-  fd.innerHTML = html;
-
   var ft = document.getElementById('filterTons');
-  var tons = Object.keys(tonsSet).sort(function(a,b){return Number(a)-Number(b);});
-  var html2 = '<button type="button" class="chip tchip on" onclick="setFilterT(this,\'all\')">همه</button>';
-  for(var k=0; k<tons.length; k++){
-    html2 += '<button type="button" class="chip tchip" onclick="setFilterT(this,\''+tons[k]+'\')">'+tons[k]+' تن</button>';
+  if(ft){
+    var tons = Object.keys(tonsSet).sort(function(a,b){return Number(a)-Number(b);});
+    var html2 = '<span class="chip tchip on" style="cursor:pointer" onclick="setFilterT(this,\'all\')">همه</span>';
+    for(var k=0; k<tons.length; k++){
+      html2 += '<span class="chip tchip" style="cursor:pointer" onclick="setFilterT(this,\''+tons[k]+'\')">'+tons[k]+' تن</span>';
+    }
+    ft.innerHTML = html2;
   }
-  ft.innerHTML = html2;
 }
+
+window.addEventListener('load', function(){
+  console.log('DOM ready, building filters');
+  buildFilters();
+  var two = document.getElementById('fPlateTwo');
+  var three = document.getElementById('fPlateThree');
+  var city = document.getElementById('fPlateCity');
+  if(two && three && city){
+    [two, three, city].forEach(function(el){
+      el.addEventListener('input', function(){
+        el.value = el.value.replace(/[^0-9۰-۹]/g,'');
+        checkPlate();
+      });
+    });
+  }
+});
 
 function checkPlate(){
   var two = document.getElementById('fPlateTwo').value;
@@ -344,7 +347,6 @@ function checkPlate(){
   var city = document.getElementById('fPlateCity').value;
   if(two.length!==2  three.length!==3  city.length!==2) return;
 
-  // چک تکراری در صف
   var dupEntry = null;
   var items = document.querySelectorAll('#listQueue .item');
   for(var i=0; i<items.length; i++){
@@ -353,12 +355,14 @@ function checkPlate(){
   }
   var dup = document.getElementById('dupBadge');
   var badge = document.getElementById('autoFillBadge');
-  dup.classList.remove('on');
-  badge.classList.remove('on');
+  if(dup) dup.classList.remove('on');
+  if(badge) badge.classList.remove('on');
 
   if(dupEntry){
-    dup.innerHTML = '⛔ این پلاک هم‌اکنون در صف است — ' + dupEntry.getAttribute('data-name') + ' با کد ' + dupEntry.getAttribute('data-code');
-    dup.classList.add('on');
+    if(dup){
+      dup.innerHTML = '⛔ این پلاک در صف است — ' + dupEntry.getAttribute('data-name') + ' (کد ' + dupEntry.getAttribute('data-code') + ')';
+      dup.classList.add('on');
+    }
     return;
   }fetch('/api/plate?two='+encodeURIComponent(two)+'&three='+encodeURIComponent(three)+'&city='+encodeURIComponent(city))
     .then(function(r){ return r.json(); })
@@ -377,27 +381,10 @@ function checkPlate(){
       }
       updateHiddenDests();
       updateDestCounter();
-      badge.classList.add('on');
+      if(badge) badge.classList.add('on');
     })
     .catch(function(err){ console.error(err); });
 }
-
-document.addEventListener('DOMContentLoaded', function(){
-  var two = document.getElementById('fPlateTwo');
-  var three = document.getElementById('fPlateThree');
-  var city = document.getElementById('fPlateCity');
-  if(two && three && city){
-    [two, three, city].forEach(function(el){
-      el.addEventListener('input', function(){
-        el.value = el.value.replace(/[^0-9۰-۹]/g,'');
-        document.getElementById('autoFillBadge').classList.remove('on');
-        document.getElementById('dupBadge').classList.remove('on');
-        checkPlate();
-      });
-    });
-  }
-  buildFilters();
-});
 </script>
 
 {% endblock %}
