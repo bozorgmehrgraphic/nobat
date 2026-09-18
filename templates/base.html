@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{% block title %}سیستم نوبت‌دهی بارگیری{% endblock %}</title>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<nav class="topbar">
+  <div class="brand">🚛 سیستم نوبت‌دهی بارگیری</div>
+  {% if current_user.is_authenticated %}
+  <div class="nav-right">
+    <span class="who">{{ current_user.name or current_user.username }}{% if current_user.is_admin %} (مدیر){% endif %}</span>
+    <a class="btn-ghost" href="{{ url_for('logout') }}">خروج</a>
+  </div>
+  {% endif %}
+</nav>
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <div class="flash-wrap">
+    {% for cat, m in messages %}
+      <div class="flash {{ cat }}">{{ m }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+{% endwith %}
+<main class="wrap">
+{% block content %}{% endblock %}
+</main>
+</body>
+</html>
