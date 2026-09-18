@@ -6,14 +6,31 @@
 <title>{% block title %}سیستم نوبت‌دهی بارگیری{% endblock %}</title>
 <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<script>
+(function(){
+  var t = localStorage.getItem('theme') || 'light';
+  if(t === 'dark') document.documentElement.classList.add('dark-preload');
+})();
+</script>
 </head>
 <body>
 <nav class="topbar">
-  <div class="brand">🚛 سیستم نوبت‌دهی بارگیری</div>
+  <div class="brand">🚛  نوبت‌دهی بارگیری شرکت ویوان</div>
   {% if current_user.is_authenticated %}
   <div class="nav-right">
     <span class="who">{{ current_user.name or current_user.username }}{% if current_user.is_admin %} (مدیر){% endif %}</span>
-    <a class="btn-ghost" href="{{ url_for('logout') }}">خروج</a>
+    <div class="menu-wrap">
+      <button class="menu-btn" id="menuBtn" type="button">⋮</button>
+      <div class="menu-dropdown" id="menuDropdown">
+        <div class="menu-item" id="themeToggle">
+          <span id="themeIcon">🌙</span> <span id="themeLabel">حالت تاریک</span>
+        </div>
+        {% if current_user.is_admin %}
+        <a class="menu-item" href="{{ url_for('manager_drivers') }}">👤 راننده‌ها</a>
+        {% endif %}
+        <a class="menu-item" href="{{ url_for('logout') }}">🚪 خروج</a>
+      </div>
+    </div>
   </div>
   {% endif %}
 </nav>
@@ -29,5 +46,48 @@
 <main class="wrap">
 {% block content %}{% endblock %}
 </main>
+<script>
+(function(){
+  var menuBtn = document.getElementById('menuBtn');
+  var dropdown = document.getElementById('menuDropdown');
+
+  function applyTheme(theme){
+    if(theme === 'dark'){
+      document.body.classList.add('dark');
+      document.getElementById('themeIcon').textContent = '☀️';
+      document.getElementById('themeLabel').textContent = 'حالت روشن';
+    } else {
+      document.body.classList.remove('dark');
+      document.getElementById('themeIcon').textContent = '🌙';
+      document.getElementById('themeLabel').textContent = 'حالت تاریک';
+    }
+  }
+
+  if(menuBtn && dropdown){
+    menuBtn.addEventListener('click', function(e){
+      e.stopPropagation();
+      dropdown.classList.toggle('on');
+    });
+    document.addEventListener('click', function(){
+      dropdown.classList.remove('on');
+    });
+    dropdown.addEventListener('click', function(e){
+      e.stopPropagation();
+    });
+  }
+
+  var toggle = document.getElementById('themeToggle');
+  if(toggle){
+    toggle.addEventListener('click', function(){
+      var cur = localStorage.getItem('theme') || 'light';
+      var next = cur === 'dark' ? 'light' : 'dark';
+      localStorage.setItem('theme', next);
+      applyTheme(next);
+    });
+  }
+
+  applyTheme(localStorage.getItem('theme') || 'light');
+})();
+</script>
 </body>
 </html>
