@@ -9,7 +9,7 @@
 <div class="card">
   <h2>👤 پروفایل من</h2>
   <p class="muted" style="font-size:12px;line-height:1.9">
-    این اطلاعات ذخیره می‌شود و در دفعات بعدی که می‌خواهید نوبت بگیرید، خودکار پر می‌شود.
+    این اطلاعات ذخیره می‌شود و در دفعات بعدی خودکار پر می‌شود.
   </p>
   <form method="post" action="{{ url_for('driver_profile') }}">
     <div class="grid">
@@ -21,6 +21,8 @@
         <input type="tel" name="vet_code" value="{{ profile.vet_code if profile else '' }}" inputmode="numeric"></div>
       <div><label>بیشترین تناژ (تن)</label>
         <input type="tel" name="tonnage" value="{{ profile.tonnage if profile else '' }}" inputmode="decimal"></div>
+      <div><label>نام باربری</label>
+        <input type="text" name="barfoory" value="{{ profile.barfoory if profile else '' }}" placeholder="مثلاً باربری احمدی"></div>
     </div>
     <button class="btn-primary" type="submit" style="margin-top:14px">💾 ذخیره پروفایل</button>
   </form>
@@ -40,11 +42,12 @@
       <b>{{ expiry_text(entry) }}</b></div>
   </div>
   <div class="plate-view">{{ entry.plate_two|fa }} ع {{ entry.plate_three|fa }} ایران {{ entry.plate_city|fa }}</div>
+  {% if entry.barfoory %}<div style="margin-top:8px;font-size:13px;color:#64748b">باربری: <b>{{ entry.barfoory }}</b></div>{% endif %}
   <div class="tags">
     {% for x in entry.get_destinations() %}<span class="tag">{{ x }}</span>{% endfor %}
   </div>
   <div style="display:flex;gap:8px;margin-top:18px;flex-wrap:wrap">
-    <form method="post" action="{{ url_for('driver_extend') }}" style="display:inline" onsubmit="return confirm('تایمر نوبت شما تمدید شود؟ (۷ روز دیگر مهلت خواهید داشت)')">
+    <form method="post" action="{{ url_for('driver_extend') }}" style="display:inline" onsubmit="return confirm('تایمر نوبت شما تمدید شود؟')">
       <button class="btn-extend" type="submit">🔄 تمدید نوبت</button>
     </form>
     <form method="post" action="{{ url_for('driver_cancel') }}" style="display:inline" onsubmit="return confirm('از لغو نوبت مطمئن هستید؟')">
@@ -88,6 +91,8 @@
         <input type="tel" name="vet_code" value="{{ profile.vet_code if profile else '' }}" inputmode="numeric" required></div>
       <div><label>بیشترین تناژ (تن)</label>
         <input type="tel" name="tonnage" value="{{ profile.tonnage if profile else '' }}" inputmode="decimal" required></div>
+      <div><label>نام باربری</label>
+        <input type="text" name="barfoory" value="{{ profile.barfoory if profile else '' }}" placeholder="مثلاً باربری احمدی"></div>
     </div>
     <div style="margin-top:14px">
       <label>مقصد (حداکثر ۳ مورد) <span id="destCounter" style="font-weight:400;font-size:12px;color:#64748b">(۰ از ۳)</span></label>
