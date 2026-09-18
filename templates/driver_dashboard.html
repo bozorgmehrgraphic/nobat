@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="card">
+  <h2>خوش آمدید {{ current_user.name }}</h2>
+  <p class="muted">شماره تماس: {{ current_user.phone|fa }}</p>
+</div>
+
+{% if entry and entry.status == 'waiting' %}
+<div class="card status-card waiting">
+  <h2>⏳ شما در صف انتظار هستید</h2>
+  <div class="big-status">
+    <div class="big-row">
+      <span>کد نوبت شما:</span>
+      <b class="qcode-lg {{ waiting_class(entry) }}">{{ entry.queue_code|fa }}</b>
+    </div>
+    <div class="big-row">
+      <span>جایگاه شما در صف:</span>
+      <b class="pos-lg">{{ position|fa }}</b>
+    </div>
+    <div class="big-row">
+      <span>مدت انتظار:</span>
+      <b>{{ wait_text(entry) }}</b>
+    </div>
+    <div class="big-row">
+      <span>زمان باقی‌مانده تا حذف:</span>
+      <b>{{ expiry_text(entry) }}</b>
+    </div>
+  </div>
+  <div class="plate-view">{{ entry.plate_two|fa }} ع {{ entry.plate_three|fa }} ایران {{ entry.plate_city|fa }}</div>
+  <div class="tags">
+    {% for x in entry.get_destinations() %}<span class="tag">{{ x }}</span>{% endfor %}
+  </div>
+</div>
+
+{% elif entry and entry.status == 'loaded' %}
+<div class="card status-card loaded">
+  <h2>✅ بار شما اختصاص یافت</h2>
+  <div class="big-status">
+    <div class="big-row"><span>کد نوبت:</span><b>{{ entry.queue_code|fa }}</b></div>
+    <div class="big-row"><span>مقصد بار:</span><b>{{ entry.cargo_dest }}</b></div>
+    {% if entry.cargo_name %}<div class="big-row"><span>نام بار:</span><b>{{ entry.cargo_name }}</b></div>{% endif %}
+    {% if entry.cargo_ton %}<div class="big-row"><span>وزن:</span><b>{{ entry.cargo_ton|fa }} تن</b></div>{% endif %}
+  </div>
+</div>
+
+{% else %}
+<div class="card">
+  <h2>ثبت در صف</h2>
+  <p class="muted">شما در صف نیستید. برای ثبت نوبت، فرم زیر را پر کنید.</p>
+  <form method="post" action="{{ url_for('driver_queue') }}">
+    <div class="plate-section">
+      <label>شماره پلاک</label>
+      <div class="plate-group">
+        <input class="p2" name="plate_two" maxlength="2" inputmode="numeric" placeholder="۱۲" required>
+        <span class="plate-letter-fixed">ع</span>
+        <input class="p3" name="plate_three" maxlength="3" inputmode="numeric" placeholder="۳۴۵" required>
+        <span class="plate-ir">ایران</span>
+        <input class="pC" name="plate_city" maxlength="2" inputmode="numeric" placeholder="۶۷" required>
+      </div>
+    </div>
+    <div class="grid">
+      <div><label>نام و نام خانوادگی</label><input type="text" name="name" value="{{ current_user.name }}" required></div>
+      <div><label>شماره تماس</label><input type="tel" name="phone" value="{{ current_user.phone }}" inputmode="numeric" required></div>
+      <div><label>کد دامپزشکی</label><input type="tel" name="vet_code" inputmode="numeric" required></div>
+      <div><label>بیشترین تناژ (تن)</label><input type="tel" name="tonnage" inputmode="decimal" required></div>
+    </div>
+    <div style="margin-top:14px">
+      <label>مقصد (حداکثر ۳ مورد) <span id="destCounter" style="font-weight:400;font-size:12px;color:#64748b">(۰ از ۳)</span></label>
+      <input type="text" class="dest-search" id="destSearch" placeholder="🔍 جستجوی شهر...">
+      <div class="dest-wrap">
+        <div class="chips" id="destChips">
+          {% for d in all_dests %}
+            <label class="chip"><input type="checkbox" name="destinations" value="{{ d.name }}" style="display:none"><span>{{ d.name }}</span></label>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    <button class="btn-primary" type="submit" style="margin-top:14px">ثبت در صف</button>
+  </form>
+</div>
+<script>
+(function(){
+  const wrap = document.getElementById('destChips');
+  if(!wrap) return;
+  const counter = document.getElementById('destCounter');
+  const search = document.getElementById('destSearch');
+  wrap.querySelectorAll('input[type=checkbox]').forEach(cb => {cb.addEventListener('change', () => {
+      const sel = wrap.querySelectorAll('input[type=checkbox]:checked');
+      counter.textContent = (${sel.length} از ۳ انتخاب شده);
+      wrap.querySelectorAll('.chip').forEach(c => {
+        const cbox = c.querySelector('input');
+        if(cbox.checked){ c.classList.add('on'); }
+        else { c.classList.remove('on'); c.classList.toggle('disabled', sel.length>=3); cbox.disabled = sel.length>=3; }
+      });
+    });
+  });
+  if(search) search.addEventListener('input', e => {
+    const q = e.target.value.trim();
+    wrap.querySelectorAll('.chip').forEach(c => {
+      const t = c.querySelector('span').textContent;
+      c.style.display = (!q || t.includes(q)) ? '' : 'none';
+    });
+  });
+})();
+</script>
+{% endif %}
+
+{% endblock %}
